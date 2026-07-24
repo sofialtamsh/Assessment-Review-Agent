@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 
-from ...config import load_prompt
+from ...instructions import prompt_for
 from ...llm.base import LLMRunner
 from ...schemas import Finding, Judgment, Question
 
@@ -17,7 +17,7 @@ PHASE = "phase6_judge"
 
 def run(questions: list[Question], findings: list[Finding],
         runner: LLMRunner) -> list[Judgment]:
-    prompt = load_prompt(PHASE)
+    prompt = prompt_for(PHASE, questions[0].session_id if questions else None)
     serial_findings = [
         {
             "question_id": f.question_id, "phase": f.phase, "check_name": f.check_name,

@@ -432,5 +432,43 @@ def get_audit(run_id: str) -> dict:
     return {"log": audit.get_log(run_id=run_id)}
 
 
+# --------------------------------------------------------------------------- #
+# Agent instructions (reviewer feedback the agents remember on future runs)
+# --------------------------------------------------------------------------- #
+@app.get("/instructions")
+def get_instructions(session_id: str | None = Query(None)) -> dict:
+    from . import instructions
+    return {
+        "instructions": instructions.list_instructions(session_id),
+        "targetable": [
+            {"phase": p, "label": lbl, "description": desc}
+            for p, lbl, desc in instructions.TARGETABLE
+        ],
+    }
+
+
+@app.post("/instructions")
+def create_instruction(body: dict = Body(...)) -> dict:
+    from . import instructions
+    phase = body.get("phase", "all")
+    text = (body.get("text") or "").strip()
+    if not text:
+        raise HTTPException(400, "instruction text is required")
+    try:
+        row = instructions.add_instruction(phase, text, body.get("session_id"))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    audit.log("instruction_added", detail={"phase": phase, "text": text[:120]})
+    return row
+
+
+@app.delete("/instructions/{instruction_id}")
+def remove_instruction(instruction_id: int) -> dict:
+    from . import instructions
+    instructions.delete_instruction(instruction_id)
+    audit.log("instruction_removed", detail={"id": instruction_id})
+    return {"deleted": instruction_id}
+
+
 def _dl(name: str) -> dict:
     return {"Content-Disposition": f'attachment; filename="{name}"'}

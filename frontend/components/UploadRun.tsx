@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  API_BASE,
+  checkHealth,
   createRun,
   listUnits,
   prepareAndRun,
@@ -81,6 +83,12 @@ export default function UploadRun() {
   const [mQuestions, setMQuestions] = useState<File | null>(null);
   const [mContent, setMContent] = useState<File | null>(null);
   const [mSessionId, setMSessionId] = useState("");
+
+  // backend connectivity
+  const [health, setHealth] = useState<{ ok: boolean; detail: string } | null>(null);
+  useEffect(() => {
+    checkHealth().then(setHealth);
+  }, []);
 
   async function refreshUnits() {
     try {
@@ -191,6 +199,22 @@ export default function UploadRun() {
           questions straight from the sheet&apos;s links. No repeated uploads.
         </p>
       </div>
+
+      {health && !health.ok && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+          <div className="font-semibold">⚠️ Can&apos;t reach the backend</div>
+          <div className="mt-1">{health.detail}</div>
+          <div className="mt-2 text-rose-700/80">
+            The frontend is calling <code className="rounded bg-white/60 px-1">{API_BASE}</code>.
+            Start the backend (<code className="rounded bg-white/60 px-1">uvicorn app.main:app --port 8000</code>)
+            or set <code className="rounded bg-white/60 px-1">NEXT_PUBLIC_API_BASE_URL</code> to your
+            deployed API URL and restart <code className="rounded bg-white/60 px-1">npm run dev</code>.
+          </div>
+        </div>
+      )}
+      {health?.ok && (
+        <div className="text-xs text-emerald-600">● Connected to backend ({API_BASE} · {health.detail})</div>
+      )}
 
       {/* ---- primary: mastersheet-driven ---- */}
       <section className="card space-y-5">

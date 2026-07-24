@@ -123,6 +123,20 @@ export interface SessionInfo {
   question_counts: Record<string, number>;
 }
 
+export interface Instruction {
+  id: number;
+  phase: string;
+  text: string;
+  session_id: string | null;
+  created_at: string;
+}
+
+export interface TargetablePhase {
+  phase: string;
+  label: string;
+  description: string;
+}
+
 export interface UnitInfo {
   unit_id: string;
   course: string;

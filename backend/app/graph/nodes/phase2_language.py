@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 
-from ...config import load_prompt
+from ...instructions import prompt_for
 from ...llm.base import LLMRunner
 from ...schemas import Finding, Question
 from .util import q_public, to_findings
@@ -17,7 +17,7 @@ PHASE = "phase2_language"
 
 
 def run(questions: list[Question], runner: LLMRunner) -> list[Finding]:
-    prompt = load_prompt(PHASE)
+    prompt = prompt_for(PHASE, questions[0].session_id if questions else None)
     batch_size = runner.settings.llm.batch_size
     model = runner.model_for(PHASE)
     findings: list[Finding] = []

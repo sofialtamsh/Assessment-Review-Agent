@@ -112,6 +112,16 @@ class JudgmentRow(SQLModel, table=True):
     consolidated_fixes: list = Field(default_factory=list, sa_column=Column(JSON))
 
 
+class AgentInstruction(SQLModel, table=True):
+    __tablename__ = "agent_instructions"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    phase: str = Field(index=True)     # phase2_language ... phase6_judge, or "all"
+    text: str = ""
+    session_id: Optional[str] = Field(default=None, index=True)  # None = global
+    active: bool = True
+    created_at: datetime = Field(default_factory=_now)
+
+
 class AuditLog(SQLModel, table=True):
     __tablename__ = "audit_log"
     id: Optional[int] = Field(default=None, primary_key=True)

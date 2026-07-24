@@ -197,22 +197,41 @@ class MockProvider:
 
     # ---- Phase 7: fixer -------------------------------------------------- #
     def _phase7_fixer(self, payload: dict):
-        """Generate a replacement question grounded in the provided chunks."""
+        """Generate a grounded replacement that differs from the original.
+
+        Real (openrouter) mode writes a genuinely new question; this offline mock
+        builds one from the actual chunk sentences so it passes the scope re-check
+        and is clearly different from the target.
+        """
         chunks = payload.get("chunks", [])
         target = payload.get("target", {})
-        subtopic = (target.get("subtopics") or ["this topic"])[0]
-        base = chunks[0]["text"] if chunks else ""
-        # deterministic, content-grounded replacement
+        subtopic = (target.get("subtopics") or [target.get("stem", "this topic")])[0]
+        orig_stem = target.get("stem", "")
+
+        # pull informative sentences from the content, avoiding the original stem
+        sentences: list[str] = []
+        for c in chunks:
+            for s in re.split(r"(?<=[.!?])\s+", c.get("text", "")):
+                s = s.strip()
+                if 35 <= len(s) <= 160 and s.lower() not in orig_stem.lower():
+                    sentences.append(s)
+        correct = sentences[0] if sentences else f"A correct fact about {subtopic}."
+        # distractors: other chunk sentences (wrong for THIS question) + generic
+        distractors = sentences[1:4]
+        while len(distractors) < 3:
+            distractors.append(f"{subtopic} is unrelated to this session's content.")
+
         new_q = {
-            "stem": f"Based on the session, which statement about {subtopic} is correct?",
+            "stem": f"According to the session content, which statement about "
+                    f"{subtopic.split('(')[0].strip()[:60]} is correct?",
             "options": [
-                {"key": "A", "text": _first_sentence(base) or f"A true statement about {subtopic}."},
-                {"key": "B", "text": f"{subtopic} is unrelated to linear regression."},
-                {"key": "C", "text": f"{subtopic} only applies to classification."},
-                {"key": "D", "text": f"{subtopic} requires no training data."},
+                {"key": "A", "text": correct},
+                {"key": "B", "text": distractors[0]},
+                {"key": "C", "text": distractors[1]},
+                {"key": "D", "text": distractors[2]},
             ],
             "correct_keys": ["A"],
-            "explanation": f"Grounded in the session content on {subtopic}.",
+            "explanation": "Grounded directly in the session content.",
             "qtype": "single",
         }
         return [], {"question": new_q}

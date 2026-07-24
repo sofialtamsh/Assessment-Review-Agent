@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import json
 
-from ...config import load_prompt
 from ...embeddings import cosine, embed_texts
+from ...instructions import prompt_for
 from ...llm.base import LLMRunner
 from ...schemas import Chunk, Finding, Option, Question
 from . import phase2_language, phase3_ambiguity, phase4_scope
@@ -21,7 +21,7 @@ PHASE = "phase7_fixer"
 
 def run(target: Question, chunks: list[Chunk], siblings: list[Question],
         taught_subtopics: list[str], runner: LLMRunner) -> tuple[Question, list[Finding]]:
-    prompt = load_prompt(PHASE)
+    prompt = prompt_for(PHASE, target.session_id)
     model = runner.model_for(PHASE)
 
     # ground on the chunks most relevant to the target's subtopic/topic
@@ -30,6 +30,7 @@ def run(target: Question, chunks: list[Chunk], siblings: list[Question],
         "target": {
             "question_id": target.question_id,
             "stem": target.stem,
+            "options": [{"key": o.key, "text": o.text} for o in target.options],
             "subtopics": target.subtopics or ([target.topic] if target.topic else []),
         },
         "chunks": [{"ref": c.source_ref, "text": c.text} for c in relevant],

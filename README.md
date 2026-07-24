@@ -35,6 +35,21 @@ Phases 3–4 use a **candidate-then-confirm** design: real embeddings/retrieval 
 candidates deterministically, and the model confirms — so the offline mock still catches
 the seeded defects, and swapping in a real model only improves judgement.
 
+### Human-in-the-loop actions (Question drawer)
+Every question can be **Approved / Edited / Regenerated / Deleted**. Editing lets you
+change the stem **and the option texts** (tick the correct one/s); regeneration proposes a
+new grounded question side-by-side and re-reviews it before you Apply. After any edit or
+regeneration the question is re-reviewed, and you approve it explicitly — nothing enters
+the approved set unreviewed.
+
+### Teaching the agents (reviewer feedback)
+On the dashboard, the **"Teach the agents"** panel lets you write a standing instruction
+and pick which agent/phase should follow it (Language, Ambiguity, Scope, Pedagogy, Judge,
+or *All*). The instruction is appended to that agent's prompt on **every future run**, so
+the agent remembers your preference. The **Review-stages** panel shows a ★ badge on each
+phase that has instructions applied, so you can see exactly which agent picked up your
+feedback. (`GET/POST/DELETE /instructions`.)
+
 ---
 
 ## Repository layout

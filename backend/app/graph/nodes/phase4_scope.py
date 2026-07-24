@@ -15,7 +15,8 @@ from __future__ import annotations
 import json
 import re
 
-from ...config import get_settings, load_prompt
+from ...config import get_settings
+from ...instructions import prompt_for
 from ...embeddings import cosine, embed_texts
 from ...llm.base import LLMRunner
 from ...schemas import Chunk, Finding, Question
@@ -37,7 +38,7 @@ _STOP = {
 
 def run(questions: list[Question], chunks: list[Chunk],
         taught_subtopics: list[str], runner: LLMRunner) -> list[Finding]:
-    prompt = load_prompt(PHASE)
+    prompt = prompt_for(PHASE, questions[0].session_id if questions else None)
     model = runner.model_for(PHASE)
 
     if not chunks:

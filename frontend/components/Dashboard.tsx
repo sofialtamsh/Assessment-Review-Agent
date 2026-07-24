@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { exportUrl, getReport, reportExportUrl } from "@/lib/api";
-import type { PhaseSummary, QuestionRow, ReportResponse } from "@/lib/types";
+import { exportUrl, getReport, listInstructions, reportExportUrl } from "@/lib/api";
+import type { Instruction, PhaseSummary, QuestionRow, ReportResponse } from "@/lib/types";
 import { BarChart, Donut } from "./charts";
+import FeedbackPanel from "./FeedbackPanel";
 import QuestionDrawer from "./QuestionDrawer";
 import { Stat, StatusPill, VerdictChip } from "./ui";
 
@@ -25,7 +26,31 @@ export default function Dashboard({ runId }: { runId: string }) {
   const [filter, setFilter] = useState<Filter>("ALL");
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [open, setOpen] = useState<QuestionRow | null>(null);
+  const [instr, setInstr] = useState<Instruction[]>([]);
   const [err, setErr] = useState("");
+
+  const loadInstr = useCallback(async () => {
+    try {
+      const r = await listInstructions();
+      setInstr(r.instructions);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  useEffect(() => {
+    loadInstr();
+  }, [loadInstr]);
+
+  const instrCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const it of instr) {
+      const targets = it.phase === "all"
+        ? ["phase2_language", "phase3_ambiguity", "phase4_scope", "phase5_pedagogy", "phase6_judge"]
+        : [it.phase];
+      for (const t of targets) m[t] = (m[t] || 0) + 1;
+    }
+    return m;
+  }, [instr]);
 
   const load = useCallback(async () => {
     try {
@@ -135,7 +160,7 @@ export default function Dashboard({ runId }: { runId: string }) {
         </div>
       </section>
 
-      <PhasePanel phases={data.phase_summary || []} />
+      <PhasePanel phases={data.phase_summary || []} instrCounts={instrCounts} />
 
       <CostPanel data={data} />
 
@@ -208,6 +233,8 @@ export default function Dashboard({ runId }: { runId: string }) {
         </table>
       </section>
 
+      <FeedbackPanel />
+
       {open && (
         <QuestionDrawer
           q={open}
@@ -220,7 +247,13 @@ export default function Dashboard({ runId }: { runId: string }) {
   );
 }
 
-function PhasePanel({ phases }: { phases: PhaseSummary[] }) {
+function PhasePanel({
+  phases,
+  instrCounts,
+}: {
+  phases: PhaseSummary[];
+  instrCounts: Record<string, number>;
+}) {
   if (!phases.length) return null;
   return (
     <section className="card">
@@ -243,6 +276,14 @@ function PhasePanel({ phases }: { phases: PhaseSummary[] }) {
                   {p.ran ? "✓" : "–"}
                 </span>
                 <span className="text-sm font-medium leading-tight">{p.label}</span>
+                {instrCounts[p.phase] > 0 && (
+                  <span
+                    className="chip bg-accent-50 text-accent-700"
+                    title="Reviewer instructions applied to this agent"
+                  >
+                    ★ {instrCounts[p.phase]}
+                  </span>
+                )}
                 <span className="ml-auto text-[10px] uppercase text-black/30">
                   {p.uses_llm ? "LLM" : "python"}
                 </span>

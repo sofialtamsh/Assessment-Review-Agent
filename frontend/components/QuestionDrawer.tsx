@@ -69,6 +69,7 @@ export default function QuestionDrawer({
   const [editing, setEditing] = useState(false);
   const [stem, setStem] = useState(q.stem);
   const [keys, setKeys] = useState(q.correct_keys.join(","));
+  const [opts, setOpts] = useState(q.options.map((o) => ({ ...o })));
   const [candidate, setCandidate] = useState<any>(null);
   const [recheck, setRecheck] = useState<Finding[]>([]);
   const [err, setErr] = useState("");
@@ -129,7 +130,65 @@ export default function QuestionDrawer({
                   />
                 </div>
                 <div>
-                  <div className="label mb-1">Correct keys (comma separated)</div>
+                  <div className="label mb-1">Options (tick the correct one/s)</div>
+                  <div className="space-y-1.5">
+                    {opts.map((o, i) => {
+                      const isCorrect = keys
+                        .split(",")
+                        .map((s) => s.trim())
+                        .includes(o.key);
+                      return (
+                        <div key={i} className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            title="Mark correct"
+                            className={`grid h-6 w-6 shrink-0 place-items-center rounded-md text-xs ${
+                              isCorrect ? "bg-emerald-500 text-white" : "bg-black/[0.06] text-black/40"
+                            }`}
+                            onClick={() => {
+                              const cur = keys.split(",").map((s) => s.trim()).filter(Boolean);
+                              const next = cur.includes(o.key)
+                                ? cur.filter((k) => k !== o.key)
+                                : [...cur, o.key];
+                              setKeys(next.join(","));
+                            }}
+                          >
+                            {o.key}
+                          </button>
+                          <input
+                            className="w-full rounded-lg border border-black/10 p-2 text-sm"
+                            value={o.text}
+                            onChange={(e) => {
+                              const next = [...opts];
+                              next[i] = { ...o, text: e.target.value };
+                              setOpts(next);
+                            }}
+                          />
+                          <button
+                            type="button"
+                            className="text-black/30 hover:text-rose-500"
+                            title="Remove option"
+                            onClick={() => setOpts(opts.filter((_, j) => j !== i))}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      className="text-xs text-accent-600 hover:text-accent-700"
+                      onClick={() => {
+                        const nextKey = String.fromCharCode(65 + opts.length);
+                        setOpts([...opts, { key: nextKey, text: "" }]);
+                      }}
+                    >
+                      + Add option
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <div className="label mb-1">Correct keys</div>
                   <input
                     className="w-40 rounded-lg border border-black/10 p-2 text-sm"
                     value={keys}
@@ -144,6 +203,7 @@ export default function QuestionDrawer({
                       act(async () => {
                         await editQuestion(q.question_id, runId, {
                           stem,
+                          options: opts.filter((o) => o.text.trim()),
                           correct_keys: keys.split(",").map((s) => s.trim()).filter(Boolean),
                         });
                         setEditing(false);
