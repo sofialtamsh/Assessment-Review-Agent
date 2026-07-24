@@ -110,27 +110,45 @@ npm run dev                          # http://localhost:3000
 
 ---
 
-## Reviewing your own curriculum (content from mastersheet links)
+## Reviewing your curriculum straight from the mastersheet (recommended)
 
-The system **does not generate content** — for a real course it pulls the session
-content straight from the links already in your mastersheet:
+The system **generates nothing** — it pulls everything from the links already in your
+mastersheet. **Upload the sheet as `.xlsx`** (Excel keeps the hyperlinks; CSV drops
+them), then just pick a unit:
 
-- **Google Slides** "Embedded links" → the backend fetches the published `/pub` page
-  and extracts the slide text (from the SVG `aria-label`s the viewer renders).
-- **Direct `.pptx` / `.pdf` / `.txt` links** (e.g. S3) → downloaded and parsed.
+1. **Upload & Run → "Ingest mastersheet"** with your `.xlsx`. The backend reads each
+   row's hyperlinks and groups rows by unit (Session + Tutorial + MCQ Practice).
+2. Pick a **unit** from the dropdown and a **review set** (MCQ assignment or in-class quiz).
+3. Click **"Fetch & Review"**. In one call the backend:
+   - fetches the **session slides** (Google Slides published page → slide text),
+   - fetches + parses the **MCQ assignment** (Google Doc → `export?format=txt` → MCQs),
+   - fetches the **tutorial doc** and extracts the 5 in-class MCQs at its end (for
+     cross-set overlap),
+   - runs the full 7-phase review.
 
-After uploading your mastersheet, select the session and click **"Fetch content from
-link"** on the Upload & Run screen (shown whenever the session's mastersheet row has a
-content URL). Or call it directly:
+No repeated uploads, no separate question-set file. It works because the docs are shared
+"anyone with link", which Google exports publicly.
 
+How the columns map: **Unit** → the unit, **Topic** → module, **What to Cover** →
+taught subtopics, **PPT** (hyperlink) → the Slides/Doc to fetch, **Embedded links** →
+published slides.
+
+API equivalents:
 ```
-POST /sessions/{session_id}/fetch_content        # uses the mastersheet link
-POST /sessions/{session_id}/fetch_content  {"url": "https://…"}   # override
+POST /upload/mastersheet            # .xlsx -> returns {mode:"units", units:[...]}
+GET  /units                          # units + which sets/content are available
+POST /units/{unit_id}/prepare_and_run   {"set":"mcq_assignment"|"in_class_quiz"}
 ```
 
-You still provide the **question set** to review (the mastersheet is *what was taught*,
-not the questions). The `make_ppt.py` script only builds the throwaway demo PPT for the
-offline sample — it is never used for your real data.
+**Accuracy note:** run these with `llm.provider: openrouter` (real Claude). The offline
+`mock` provider is only for plumbing/tests — its scope check is a crude lexical heuristic
+and will over-flag "out of scope" on real content; the real model reads the actual slide
+text and judges correctly.
+
+### Manual upload (fallback)
+The **Advanced** section on Upload & Run still accepts your own question-set file
+(CSV/XLSX/JSON) + content file (.pptx/.pdf/.md) for a one-off review. The `make_ppt.py`
+script only builds the throwaway demo PPT for the offline sample — never used for real data.
 
 ## Using real Claude models (OpenRouter)
 

@@ -89,7 +89,7 @@ def run(questions: list[Question], chunks: list[Chunk],
             "tag_in_scope": tag_in_scope,
             "numeric_overlap": numeric_overlap,
             "shared_phrase": shared_phrase,
-            "min_overlap": 0.5,
+            "min_overlap": 0.33,
             "verbatim_phrase_min": 3,
             "_q": q,  # kept local; stripped before sending
         })

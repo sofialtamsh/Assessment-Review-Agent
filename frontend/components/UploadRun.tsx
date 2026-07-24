@@ -4,15 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   createRun,
-  fetchSessionContent,
-  listSessions,
+  listUnits,
+  prepareAndRun,
   streamUrl,
   uploadFile,
 } from "@/lib/api";
-import type { SessionInfo } from "@/lib/types";
+import type { UnitInfo } from "@/lib/types";
 import { PHASE_LABELS, PHASE_ORDER } from "./ui";
 
-type Step = "idle" | "uploading" | "running" | "done" | "error";
+type Step = "idle" | "uploading" | "preparing" | "running" | "done" | "error";
 
 function DropZone({
   label,
@@ -65,190 +65,213 @@ function DropZone({
 
 export default function UploadRun() {
   const router = useRouter();
-  const [master, setMaster] = useState<File | null>(null);
-  const [questions, setQuestions] = useState<File | null>(null);
-  const [quiz, setQuiz] = useState<File | null>(null);
-  const [content, setContent] = useState<File | null>(null);
-  const [sessions, setSessions] = useState<SessionInfo[]>([]);
-  const [sessionId, setSessionId] = useState("");
-  const [sourceSet, setSourceSet] = useState("mcq_assignment");
   const [step, setStep] = useState<Step>("idle");
   const [msg, setMsg] = useState("");
   const [completed, setCompleted] = useState<string[]>([]);
   const [current, setCurrent] = useState("");
 
-  async function refreshSessions() {
+  // mastersheet-driven flow
+  const [master, setMaster] = useState<File | null>(null);
+  const [units, setUnits] = useState<UnitInfo[]>([]);
+  const [unitId, setUnitId] = useState("");
+  const [set, setSet] = useState("mcq_assignment");
+
+  // manual (advanced) flow
+  const [showManual, setShowManual] = useState(false);
+  const [mQuestions, setMQuestions] = useState<File | null>(null);
+  const [mContent, setMContent] = useState<File | null>(null);
+  const [mSessionId, setMSessionId] = useState("");
+
+  async function refreshUnits() {
     try {
-      const r = await listSessions();
-      setSessions(r.sessions);
-      if (!sessionId && r.sessions[0]) setSessionId(r.sessions[0].session_id);
+      const r = await listUnits();
+      setUnits(r.units);
+      if (!unitId && r.units[0]) setUnitId(r.units[0].unit_id);
     } catch {
-      /* backend maybe not up yet */
+      /* backend maybe not reachable yet */
     }
   }
 
   useEffect(() => {
-    refreshSessions();
+    refreshUnits();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function doUpload() {
+  function attachStream(runId: string) {
+    setStep("running");
+    setCompleted([]);
+    setCurrent(PHASE_ORDER[0]);
+    const es = new EventSource(streamUrl(runId));
+    es.onmessage = (ev) => {
+      const data = JSON.parse(ev.data);
+      if (data.type === "phase") {
+        setCompleted(data.completed || []);
+        setCurrent(data.phase);
+      } else if (data.type === "done") {
+        es.close();
+        setStep("done");
+        router.push(`/dashboard/${runId}`);
+      } else if (data.type === "error") {
+        es.close();
+        setStep("error");
+        setMsg(data.message || "Run failed");
+      }
+    };
+    es.onerror = () => {
+      es.close();
+      router.push(`/dashboard/${runId}`);
+    };
+  }
+
+  async function ingestMaster() {
+    if (!master) {
+      setMsg("Choose the mastersheet (.xlsx) first.");
+      return;
+    }
     setStep("uploading");
     setMsg("");
     try {
-      if (master) await uploadFile("/upload/mastersheet", master);
-      if (questions) await uploadFile("/upload/questions", questions);
-      if (quiz) await uploadFile("/upload/questions", quiz);
-      let sid = sessionId;
-      if (content) {
-        if (!sid) throw new Error("Pick or ingest a session before uploading content.");
-        await uploadFile("/upload/content", content, { session_id: sid });
+      const r = await uploadFile("/upload/mastersheet", master);
+      if (r.mode === "units") {
+        await refreshUnits();
+        setMsg(`Ingested ${r.ingested} units. Pick one and review — content & questions load from the sheet.`);
+      } else {
+        setMsg(`Ingested ${r.ingested} sessions (CSV has no links — use manual upload, or upload the .xlsx to auto-source content/questions).`);
       }
-      await refreshSessions();
       setStep("idle");
-      setMsg("Uploaded. Pick a session and run the review.");
     } catch (e: any) {
       setStep("error");
       setMsg(e.message || "Upload failed");
     }
   }
 
-  async function runReview() {
-    if (!sessionId) {
-      setMsg("Select a session first.");
+  async function reviewFromUnit() {
+    if (!unitId) {
+      setMsg("Select a unit first.");
       return;
     }
-    setStep("running");
-    setCompleted([]);
-    setCurrent(PHASE_ORDER[0]);
-    setMsg("");
+    setStep("preparing");
+    setMsg("Fetching slides & questions from the mastersheet links…");
     try {
-      const { run_id } = await createRun(sessionId, sourceSet);
-      const es = new EventSource(streamUrl(run_id));
-      es.onmessage = (ev) => {
-        const data = JSON.parse(ev.data);
-        if (data.type === "phase") {
-          setCompleted(data.completed || []);
-          setCurrent(data.phase);
-        } else if (data.type === "done") {
-          es.close();
-          setStep("done");
-          router.push(`/dashboard/${run_id}`);
-        } else if (data.type === "error") {
-          es.close();
-          setStep("error");
-          setMsg(data.message || "Run failed");
-        }
-      };
-      es.onerror = () => {
-        // stream ended; navigate anyway (run persisted)
-        es.close();
-        router.push(`/dashboard/${run_id}`);
-      };
+      const r = await prepareAndRun(unitId, set);
+      if (r.warnings?.length) setMsg(r.warnings.join(" · "));
+      attachStream(r.run_id);
     } catch (e: any) {
       setStep("error");
-      setMsg(e.message || "Could not start run");
+      setMsg(e.message || "Could not prepare this unit");
     }
   }
 
-  const selected = sessions.find((s) => s.session_id === sessionId);
-  const hasLink = !!selected?.content_path?.toLowerCase().startsWith("http");
-  const [fetching, setFetching] = useState(false);
-
-  async function fetchFromLink() {
-    if (!sessionId) return;
-    setFetching(true);
+  async function runManual() {
+    setStep("uploading");
     setMsg("");
     try {
-      const r = await fetchSessionContent(sessionId);
-      setMsg(`Fetched ${r.chunks} content chunks from the session's link.`);
-      await refreshSessions();
+      if (mQuestions) await uploadFile("/upload/questions", mQuestions, { session_id: mSessionId });
+      if (mContent) {
+        if (!mSessionId) throw new Error("Enter the session id for the content.");
+        await uploadFile("/upload/content", mContent, { session_id: mSessionId });
+      }
+      const { run_id } = await createRun(mSessionId, "mcq_assignment");
+      attachStream(run_id);
     } catch (e: any) {
-      setMsg(e.message || "Could not fetch content from the link");
-    } finally {
-      setFetching(false);
+      setStep("error");
+      setMsg(e.message || "Manual run failed");
     }
   }
+
+  const selected = units.find((u) => u.unit_id === unitId);
+  const busy = step === "uploading" || step === "preparing" || step === "running";
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Upload &amp; Run</h1>
         <p className="mt-1 text-black/50">
-          Ingest the mastersheet, question set, and session content, then run the multi-agent review.
+          Upload the mastersheet once — pick a unit and the pipeline fetches its slides and
+          questions straight from the sheet&apos;s links. No repeated uploads.
         </p>
       </div>
 
-      <section className="grid gap-4 md:grid-cols-2">
-        <DropZone label="Mastersheet" hint="CSV / XLSX — one row per session (ground truth)" file={master} onFile={setMaster} />
-        <DropZone label="Question set" hint="CSV / XLSX / JSON — the questions to review" file={questions} onFile={setQuestions} />
-        <DropZone label="In-class quiz (optional)" hint="CSV / XLSX / JSON — enables cross-set overlap checks" file={quiz} onFile={setQuiz} />
-        <DropZone label="Session content" hint=".pptx / .pdf / .md — enables scope & verbatim checks" file={content} onFile={setContent} />
-      </section>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <button className="btn-primary" onClick={doUpload} disabled={step === "uploading"}>
-          {step === "uploading" ? "Uploading…" : "Ingest files"}
-        </button>
-        {msg && <span className="text-sm text-black/50">{msg}</span>}
-      </div>
-
-      <section className="card">
-        <div className="flex flex-wrap items-end gap-4">
-          <div>
-            <div className="label mb-1">Session</div>
-            <select
-              className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
-              value={sessionId}
-              onChange={(e) => setSessionId(e.target.value)}
-            >
-              <option value="">— select —</option>
-              {sessions.map((s) => (
-                <option key={s.session_id} value={s.session_id}>
-                  {s.session_id} · {s.topic || s.unit}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <div className="label mb-1">Set to review</div>
-            <select
-              className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
-              value={sourceSet}
-              onChange={(e) => setSourceSet(e.target.value)}
-            >
-              <option value="mcq_assignment">MCQ assignment</option>
-              <option value="in_class_quiz">In-class quiz</option>
-              <option value="examination">Examination</option>
-            </select>
-          </div>
-          {selected && (
-            <div className="text-sm text-black/50">
-              {Object.entries(selected.question_counts).map(([k, v]) => (
-                <span key={k} className="mr-3">
-                  {k}: <b>{v}</b>
-                </span>
-              ))}
-            </div>
-          )}
-          {hasLink && (
-            <button className="btn-ghost" onClick={fetchFromLink} disabled={fetching}>
-              {fetching ? "Fetching…" : "Fetch content from link"}
-            </button>
-          )}
-          <button className="btn-primary ml-auto" onClick={runReview} disabled={step === "running"}>
-            {step === "running" ? "Reviewing…" : "Run review"}
+      {/* ---- primary: mastersheet-driven ---- */}
+      <section className="card space-y-5">
+        <div className="flex items-center gap-2">
+          <span className="grid h-6 w-6 place-items-center rounded-full bg-accent-600 text-xs text-white">1</span>
+          <span className="font-medium">Upload the mastersheet (.xlsx)</span>
+        </div>
+        <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
+          <DropZone
+            label="Mastersheet (.xlsx)"
+            hint="Excel keeps the slide/doc links — CSV loses them. Course → Unit → What to Cover → PPT."
+            file={master}
+            onFile={setMaster}
+          />
+          <button className="btn-primary md:mb-1" onClick={ingestMaster} disabled={busy}>
+            {step === "uploading" ? "Ingesting…" : "Ingest mastersheet"}
           </button>
         </div>
-        {hasLink && (
-          <p className="mt-2 text-xs text-black/40">
-            This session has a content link in the mastersheet — click “Fetch content from link”
-            to pull the slide text for scope &amp; verbatim checks (no upload needed).
-          </p>
+
+        {units.length > 0 && (
+          <>
+            <div className="flex items-center gap-2 pt-2">
+              <span className="grid h-6 w-6 place-items-center rounded-full bg-accent-600 text-xs text-white">2</span>
+              <span className="font-medium">Pick a unit and what to review</span>
+            </div>
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="min-w-[16rem]">
+                <div className="label mb-1">Unit ({units.length})</div>
+                <select
+                  className="w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
+                  value={unitId}
+                  onChange={(e) => setUnitId(e.target.value)}
+                >
+                  {units.map((u) => (
+                    <option key={u.unit_id} value={u.unit_id}>
+                      {u.unit} {u.module ? `· ${u.module}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div className="label mb-1">Review set</div>
+                <select
+                  className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
+                  value={set}
+                  onChange={(e) => setSet(e.target.value)}
+                >
+                  <option value="mcq_assignment" disabled={!selected?.has_mcq_assignment}>
+                    MCQ assignment{selected && !selected.has_mcq_assignment ? " (none)" : ""}
+                  </option>
+                  <option value="in_class_quiz" disabled={!selected?.has_in_class_quiz}>
+                    In-class quiz{selected && !selected.has_in_class_quiz ? " (none)" : ""}
+                  </option>
+                </select>
+              </div>
+              <button
+                className="btn-primary ml-auto"
+                onClick={reviewFromUnit}
+                disabled={busy || !selected}
+              >
+                {step === "preparing" ? "Fetching…" : step === "running" ? "Reviewing…" : "Fetch & Review"}
+              </button>
+            </div>
+
+            {selected && (
+              <div className="flex flex-wrap gap-2 text-xs">
+                <Avail ok={selected.has_content} label="slides content" />
+                <Avail ok={selected.has_mcq_assignment} label="MCQ assignment" />
+                <Avail ok={selected.has_in_class_quiz} label="in-class quiz" />
+                {selected.subtopics.length > 0 && (
+                  <span className="text-black/40">· {selected.subtopics.length} taught subtopics</span>
+                )}
+              </div>
+            )}
+          </>
         )}
 
+        {msg && <div className="text-sm text-black/55">{msg}</div>}
+
         {(step === "running" || step === "done") && (
-          <div className="mt-6 space-y-2">
+          <div className="space-y-2 pt-2">
             {PHASE_ORDER.map((p) => {
               const done = completed.includes(p);
               const active = current === p && !done;
@@ -256,24 +279,57 @@ export default function UploadRun() {
                 <div key={p} className="flex items-center gap-3 animate-fadein">
                   <span
                     className={`grid h-6 w-6 place-items-center rounded-full text-xs ${
-                      done
-                        ? "bg-emerald-500 text-white"
-                        : active
-                        ? "bg-accent-600 text-white"
-                        : "bg-black/[0.06] text-black/40"
+                      done ? "bg-emerald-500 text-white" : active ? "bg-accent-600 text-white" : "bg-black/[0.06] text-black/40"
                     }`}
                   >
                     {done ? "✓" : active ? "…" : ""}
                   </span>
-                  <span className={done || active ? "text-ink" : "text-black/40"}>
-                    {PHASE_LABELS[p]}
-                  </span>
+                  <span className={done || active ? "text-ink" : "text-black/40"}>{PHASE_LABELS[p]}</span>
                 </div>
               );
             })}
           </div>
         )}
       </section>
+
+      {/* ---- advanced: manual upload ---- */}
+      <div>
+        <button
+          className="text-sm text-black/45 hover:text-black/70"
+          onClick={() => setShowManual((v) => !v)}
+        >
+          {showManual ? "− Hide" : "+ Advanced"}: upload files manually instead
+        </button>
+        {showManual && (
+          <section className="card mt-3 space-y-4">
+            <p className="text-sm text-black/50">
+              For a one-off review from your own files (a CSV/JSON question set and a
+              .pptx/.pdf/.md content file). Enter the session id you want them stored under.
+            </p>
+            <input
+              className="w-64 rounded-xl border border-black/10 px-3 py-2 text-sm"
+              placeholder="session id (e.g. ds_07)"
+              value={mSessionId}
+              onChange={(e) => setMSessionId(e.target.value)}
+            />
+            <div className="grid gap-4 md:grid-cols-2">
+              <DropZone label="Question set" hint="CSV / XLSX / JSON" file={mQuestions} onFile={setMQuestions} />
+              <DropZone label="Session content" hint=".pptx / .pdf / .md" file={mContent} onFile={setMContent} />
+            </div>
+            <button className="btn-primary" onClick={runManual} disabled={busy || !mSessionId}>
+              Upload &amp; run
+            </button>
+          </section>
+        )}
+      </div>
     </div>
+  );
+}
+
+function Avail({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <span className={`chip ${ok ? "bg-emerald-50 text-emerald-700" : "bg-black/[0.04] text-black/35"}`}>
+      {ok ? "✓" : "—"} {label}
+    </span>
   );
 }

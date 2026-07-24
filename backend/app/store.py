@@ -13,7 +13,7 @@ from .models import (
     QuestionRow,
     SessionRow,
 )
-from .schemas import Chunk, Finding, Judgment, Option, Question, Session
+from .schemas import Chunk, Finding, Judgment, Option, Question, Session, UnitSpec
 
 
 # ---- Session -------------------------------------------------------------- #
@@ -44,6 +44,57 @@ def list_sessions() -> list[Session]:
         return [Session(session_id=r.session_id, course=r.course, module=r.module,
                         unit=r.unit, topic=r.topic, subtopics=list(r.subtopics or []),
                         content_path=r.content_path) for r in rows]
+
+
+# ---- Units (mastersheet-sourced) ----------------------------------------- #
+def save_units(units: list[UnitSpec]) -> None:
+    with get_session() as db:
+        for u in units:
+            row = db.get(SessionRow, u.unit_id) or SessionRow(session_id=u.unit_id)
+            row.course, row.module, row.unit = u.course, u.module, u.unit
+            row.topic = u.unit
+            row.subtopics = u.subtopics
+            row.content_path = u.content_url
+            row.mcq_doc_url = u.mcq_doc_url
+            row.quiz_doc_url = u.quiz_doc_url
+            db.add(row)
+        db.commit()
+
+
+def list_units() -> list[dict]:
+    with get_session() as db:
+        rows = db.exec(select(SessionRow)).all()
+        out = []
+        for r in rows:
+            out.append({
+                "unit_id": r.session_id, "course": r.course, "module": r.module,
+                "unit": r.unit, "subtopics": list(r.subtopics or []),
+                "has_content": bool(r.content_path),
+                "content_parsed": r.content_parsed,
+                "has_mcq_assignment": bool(r.mcq_doc_url),
+                "has_in_class_quiz": bool(r.quiz_doc_url),
+                "prepared_sets": list(r.prepared_sets or []),
+            })
+        return out
+
+
+def get_unit_row(unit_id: str) -> SessionRow | None:
+    with get_session() as db:
+        return db.get(SessionRow, unit_id)
+
+
+def mark_prepared(unit_id: str, source_set: str) -> None:
+    with get_session() as db:
+        r = db.get(SessionRow, unit_id)
+        if not r:
+            return
+        prepared = list(r.prepared_sets or [])
+        if source_set not in prepared:
+            prepared.append(source_set)
+        r.prepared_sets = prepared
+        r.content_parsed = True
+        db.add(r)
+        db.commit()
 
 
 # ---- Questions ------------------------------------------------------------ #

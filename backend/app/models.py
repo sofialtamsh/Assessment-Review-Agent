@@ -28,6 +28,10 @@ class SessionRow(SQLModel, table=True):
     subtopics: list = Field(default_factory=list, sa_column=Column(JSON))
     content_path: Optional[str] = None
     content_parsed: bool = False
+    # links harvested from the mastersheet for auto-sourcing questions
+    mcq_doc_url: Optional[str] = None
+    quiz_doc_url: Optional[str] = None
+    prepared_sets: list = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class QuestionRow(SQLModel, table=True):

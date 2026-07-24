@@ -1,4 +1,4 @@
-import type { ReportResponse, RunInfo, SessionInfo } from "./types";
+import type { ReportResponse, RunInfo, SessionInfo, UnitInfo } from "./types";
 
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "http://localhost:8000";
@@ -24,6 +24,23 @@ export async function uploadFile(
 
 export async function listSessions(): Promise<{ sessions: SessionInfo[] }> {
   return j(await fetch(`${API_BASE}/sessions`, { cache: "no-store" }));
+}
+
+export async function listUnits(): Promise<{ units: UnitInfo[] }> {
+  return j(await fetch(`${API_BASE}/units`, { cache: "no-store" }));
+}
+
+export async function prepareAndRun(
+  unitId: string,
+  set: string
+): Promise<{ run_id: string; status: string; questions: number; warnings: string[] }> {
+  return j(
+    await fetch(`${API_BASE}/units/${unitId}/prepare_and_run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ set }),
+    })
+  );
 }
 
 export async function fetchSessionContent(

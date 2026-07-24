@@ -18,12 +18,34 @@ from ..schemas import Chunk
 from .content import chunk_segments, parse_content
 
 _GSLIDES = re.compile(r"docs\.google\.com/presentation", re.I)
+_GDOC = re.compile(r"docs\.google\.com/document/d/([A-Za-z0-9_-]+)", re.I)
+_SLIDES_ID = re.compile(r"/presentation/d/(?:e/)?([A-Za-z0-9_-]+)", re.I)
 _PUB_ID = re.compile(r"(/presentation/d/(?:e/)?[^/]+)", re.I)
 _HEX = re.compile(r"\\x([0-9A-Fa-f]{2})")
 _ARIA = re.compile(r'aria-label="([^"]{2,400})"')
 _ASSET = re.compile(r"\.(png|jpe?g|gif|svg|webp)$", re.I)
 _NUMISH = re.compile(r"^[\d\s().,+\-]+$")
 _SKIP = {"speaker notes", "click to add text", "click to add title"}
+
+
+def fetch_doc_text(url: str, timeout: float = 45.0) -> str:
+    """Fetch the plain text of a shared Google Doc (or a direct text/markdown URL).
+
+    Google Docs shared 'anyone with link' export publicly via /export?format=txt.
+    """
+    url = (url or "").strip()
+    m = _GDOC.search(url)
+    if m:
+        export = f"https://docs.google.com/document/d/{m.group(1)}/export?format=txt"
+        resp = httpx.get(export, timeout=timeout, follow_redirects=True)
+        resp.raise_for_status()
+        if "text/html" in resp.headers.get("content-type", ""):
+            raise ValueError("Google Doc is not publicly shared (got a sign-in page).")
+        return resp.text
+    # plain text / markdown / other direct URL
+    resp = httpx.get(url, timeout=timeout, follow_redirects=True)
+    resp.raise_for_status()
+    return resp.text
 
 
 def fetch_content(session_id: str, url: str, timeout: float = 45.0) -> list[Chunk]:

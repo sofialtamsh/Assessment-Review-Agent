@@ -33,6 +33,20 @@ class Session(BaseModel):
     content_path: str | None = None  # link/path to PPT/PDF/notes
 
 
+class UnitSpec(BaseModel):
+    """A logical unit aggregated from the mastersheet's rows (Session + Tutorial +
+    MCQ Practice), carrying the links to fetch content and questions from."""
+    unit_id: str
+    course: str = ""
+    module: str = ""            # from the "Topic" column
+    unit: str = ""             # the "Unit" column (the session name)
+    subtopics: list[str] = Field(default_factory=list)  # from "What to Cover"
+    content_url: str | None = None       # session slides (Embedded links / PPT)
+    mcq_doc_url: str | None = None        # MCQ Practice doc (the assignment)
+    quiz_doc_url: str | None = None       # Tutorial doc (in-class MCQs at the end)
+    s_id: str | None = None
+
+
 # --------------------------------------------------------------------------- #
 # The question under review (normalized)
 # --------------------------------------------------------------------------- #

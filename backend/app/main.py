@@ -44,10 +44,80 @@ def health() -> dict:
 # --------------------------------------------------------------------------- #
 @app.post("/upload/mastersheet")
 async def upload_mastersheet(file: UploadFile = File(...)) -> dict:
-    sessions = parse_mastersheet(await file.read(), file.filename)
+    data = await file.read()
+    # XLSX preserves hyperlinks -> aggregate into units with content/question links
+    if (file.filename or "").lower().endswith((".xlsx", ".xlsm")):
+        from .ingestion.mastersheet_xlsx import parse_mastersheet_xlsx
+        units = parse_mastersheet_xlsx(data)
+        if units:
+            store.save_units(units)
+            return {"mode": "units", "ingested": len(units),
+                    "units": [u.model_dump() for u in units]}
+    sessions = parse_mastersheet(data, file.filename)
     store.save_sessions(sessions)
-    return {"ingested": len(sessions),
+    return {"mode": "sessions", "ingested": len(sessions),
             "sessions": [s.model_dump() for s in sessions]}
+
+
+@app.get("/units")
+def list_units() -> dict:
+    return {"units": store.list_units()}
+
+
+@app.post("/units/{unit_id}/prepare_and_run")
+async def prepare_and_run(unit_id: str, body: dict = Body(...)) -> dict:
+    """One call: fetch this unit's content + questions from the mastersheet links,
+    then start the review. `set` is 'mcq_assignment' or 'in_class_quiz'."""
+    from .ingestion.fetch import fetch_content, fetch_doc_text
+    from .ingestion.mcq_text import parse_mcq_text
+
+    source_set = body.get("set", "mcq_assignment")
+    row = store.get_unit_row(unit_id)
+    if not row:
+        raise HTTPException(404, "unit not found")
+
+    doc_url = row.mcq_doc_url if source_set == "mcq_assignment" else row.quiz_doc_url
+    if not doc_url:
+        raise HTTPException(400, f"This unit has no {source_set} document in the mastersheet.")
+
+    warnings: list[str] = []
+
+    # 1) content (session slides) — fetch once
+    if row.content_path and str(row.content_path).lower().startswith("http") \
+            and not store.load_chunks(unit_id):
+        try:
+            store.save_chunks(fetch_content(unit_id, row.content_path))
+        except Exception as e:  # noqa: BLE001
+            warnings.append(f"content fetch failed: {e}")
+
+    # 2) questions for the requested set
+    try:
+        text = fetch_doc_text(doc_url)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, f"Could not fetch the {source_set} document: {e}")
+    questions = parse_mcq_text(text, unit_id, source_set, default_topic=row.unit)
+    if not questions:
+        raise HTTPException(422, "Fetched the document but found no parseable MCQs.")
+    store.save_questions(questions)
+
+    # 3) for an assignment, also pull the in-class quiz (cross-set overlap check)
+    if source_set == "mcq_assignment" and row.quiz_doc_url:
+        try:
+            qtext = fetch_doc_text(row.quiz_doc_url)
+            quiz = parse_mcq_text(qtext, unit_id, "in_class_quiz", default_topic=row.unit)
+            if quiz:
+                store.save_questions(quiz)
+        except Exception as e:  # noqa: BLE001
+            warnings.append(f"in-class quiz fetch skipped: {e}")
+
+    store.mark_prepared(unit_id, source_set)
+    audit.log("prepared_from_mastersheet", detail={
+        "unit_id": unit_id, "set": source_set, "questions": len(questions)})
+
+    run_id = manager.create_run(unit_id, source_set)
+    await manager.start(run_id)
+    return {"run_id": run_id, "status": "running", "questions": len(questions),
+            "warnings": warnings}
 
 
 @app.post("/upload/questions")

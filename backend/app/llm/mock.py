@@ -105,7 +105,7 @@ class MockProvider:
             qid = item["question_id"]
             top_ref = item.get("top_ref", "")
             grounded = item.get("tag_in_scope") or \
-                item.get("content_overlap", 0.0) >= item.get("min_overlap", 0.5)
+                item.get("content_overlap", 0.0) >= item.get("min_overlap", 0.33)
             if not grounded:
                 out.append(_f(qid, "phase4_scope", "out_of_scope", "FAIL",
                               f"Not covered by what was taught this session "

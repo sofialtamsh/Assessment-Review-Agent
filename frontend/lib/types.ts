@@ -122,3 +122,16 @@ export interface SessionInfo {
   content_path?: string | null;
   question_counts: Record<string, number>;
 }
+
+export interface UnitInfo {
+  unit_id: string;
+  course: string;
+  module: string;
+  unit: string;
+  subtopics: string[];
+  has_content: boolean;
+  content_parsed: boolean;
+  has_mcq_assignment: boolean;
+  has_in_class_quiz: boolean;
+  prepared_sets: string[];
+}
