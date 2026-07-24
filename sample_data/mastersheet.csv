@@ -1,0 +1,2 @@
+session_id,course,module,unit,topic,subtopics,content_path
+ds_07,Machine Learning,Classical ML,Regression,Linear Regression,MSE cost function; gradient descent; learning rate; R-squared; assumptions of linear regression,session_ds_07.pptx

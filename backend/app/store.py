@@ -1,0 +1,212 @@
+"""Repository helpers: convert between DB rows and domain schemas, and the CRUD
+the API + job runner need. Keeps SQL out of the route/graph code.
+"""
+from __future__ import annotations
+
+from sqlmodel import select
+
+from .db import get_session
+from .models import (
+    ChunkRow,
+    FindingRow,
+    JudgmentRow,
+    QuestionRow,
+    SessionRow,
+)
+from .schemas import Chunk, Finding, Judgment, Option, Question, Session
+
+
+# ---- Session -------------------------------------------------------------- #
+def save_sessions(sessions: list[Session]) -> None:
+    with get_session() as db:
+        for s in sessions:
+            row = db.get(SessionRow, s.session_id) or SessionRow(session_id=s.session_id)
+            row.course, row.module, row.unit = s.course, s.module, s.unit
+            row.topic, row.subtopics = s.topic, s.subtopics
+            row.content_path = s.content_path
+            db.add(row)
+        db.commit()
+
+
+def get_session_schema(session_id: str) -> Session | None:
+    with get_session() as db:
+        r = db.get(SessionRow, session_id)
+        if not r:
+            return None
+        return Session(session_id=r.session_id, course=r.course, module=r.module,
+                       unit=r.unit, topic=r.topic, subtopics=list(r.subtopics or []),
+                       content_path=r.content_path)
+
+
+def list_sessions() -> list[Session]:
+    with get_session() as db:
+        rows = db.exec(select(SessionRow)).all()
+        return [Session(session_id=r.session_id, course=r.course, module=r.module,
+                        unit=r.unit, topic=r.topic, subtopics=list(r.subtopics or []),
+                        content_path=r.content_path) for r in rows]
+
+
+# ---- Questions ------------------------------------------------------------ #
+def _q_to_row(q: Question) -> QuestionRow:
+    return QuestionRow(
+        question_id=q.question_id, session_id=q.session_id, source_set=q.source_set,
+        qtype=q.qtype, stem=q.stem,
+        options=[o.model_dump() for o in q.options], correct_keys=q.correct_keys,
+        explanation=q.explanation, difficulty=q.difficulty, topic=q.topic,
+        subtopics=q.subtopics, raw=q.raw,
+    )
+
+
+def _row_to_q(r: QuestionRow) -> Question:
+    return Question(
+        question_id=r.question_id, session_id=r.session_id, source_set=r.source_set,
+        qtype=r.qtype, stem=r.stem,
+        options=[Option(**o) for o in (r.options or [])], correct_keys=list(r.correct_keys or []),
+        explanation=r.explanation, difficulty=r.difficulty, topic=r.topic,
+        subtopics=list(r.subtopics or []), raw=r.raw or {},
+    )
+
+
+def save_questions(questions: list[Question]) -> None:
+    with get_session() as db:
+        for q in questions:
+            existing = db.get(QuestionRow, q.question_id)
+            row = _q_to_row(q)
+            if existing:
+                row.status = existing.status
+                row.edited = existing.edited
+                db.merge(row)
+            else:
+                db.add(row)
+        db.commit()
+
+
+def load_questions(session_id: str, source_set: str, include_deleted: bool = True) -> list[Question]:
+    with get_session() as db:
+        stmt = select(QuestionRow).where(
+            QuestionRow.session_id == session_id,
+            QuestionRow.source_set == source_set,
+        )
+        rows = db.exec(stmt).all()
+        if not include_deleted:
+            rows = [r for r in rows if r.status != "deleted"]
+        return [_row_to_q(r) for r in rows]
+
+
+def load_questions_by_session(session_id: str) -> list[Question]:
+    with get_session() as db:
+        rows = db.exec(select(QuestionRow).where(QuestionRow.session_id == session_id)).all()
+        return [_row_to_q(r) for r in rows]
+
+
+def get_question(question_id: str) -> tuple[Question, str] | None:
+    with get_session() as db:
+        r = db.get(QuestionRow, question_id)
+        if not r:
+            return None
+        return _row_to_q(r), r.status
+
+
+def upsert_question(q: Question, status: str | None = None, edited: bool | None = None) -> None:
+    with get_session() as db:
+        existing = db.get(QuestionRow, q.question_id)
+        row = _q_to_row(q)
+        if existing:
+            row.status = status if status is not None else existing.status
+            row.edited = edited if edited is not None else existing.edited
+            db.merge(row)
+        else:
+            row.status = status or "pending"
+            row.edited = bool(edited)
+            db.add(row)
+        db.commit()
+
+
+def set_question_status(question_id: str, status: str) -> None:
+    with get_session() as db:
+        r = db.get(QuestionRow, question_id)
+        if r:
+            r.status = status
+            db.add(r)
+            db.commit()
+
+
+# ---- Chunks --------------------------------------------------------------- #
+def save_chunks(chunks: list[Chunk]) -> None:
+    with get_session() as db:
+        for c in chunks:
+            db.merge(ChunkRow(chunk_id=c.chunk_id, session_id=c.session_id,
+                              text=c.text, source_ref=c.source_ref))
+        db.commit()
+
+
+def load_chunks(session_id: str) -> list[Chunk]:
+    with get_session() as db:
+        rows = db.exec(select(ChunkRow).where(ChunkRow.session_id == session_id)).all()
+        return [Chunk(chunk_id=r.chunk_id, session_id=r.session_id, text=r.text,
+                      source_ref=r.source_ref) for r in rows]
+
+
+# ---- Findings & judgments (per run) --------------------------------------- #
+def save_findings(run_id: str, findings: list[Finding]) -> None:
+    with get_session() as db:
+        for f in findings:
+            db.add(FindingRow(
+                run_id=run_id, question_id=f.question_id, phase=f.phase,
+                check_name=f.check_name, verdict=f.verdict, evidence=f.evidence,
+                suggested_fix=f.suggested_fix, related_ids=f.related_ids,
+                bloom=f.bloom, model=f.model,
+                tokens_in=f.tokens_in, tokens_out=f.tokens_out,
+            ))
+        db.commit()
+
+
+def load_findings(run_id: str) -> list[Finding]:
+    with get_session() as db:
+        rows = db.exec(select(FindingRow).where(FindingRow.run_id == run_id)).all()
+        return [Finding(
+            question_id=r.question_id, phase=r.phase, check_name=r.check_name,
+            verdict=r.verdict, evidence=r.evidence, suggested_fix=r.suggested_fix,
+            related_ids=list(r.related_ids or []), bloom=r.bloom, model=r.model,
+            tokens_in=r.tokens_in, tokens_out=r.tokens_out,
+        ) for r in rows]
+
+
+def replace_question_findings(run_id: str, question_id: str, findings: list[Finding]) -> None:
+    """Used after a regenerate/edit: drop old findings for the question, add new."""
+    with get_session() as db:
+        rows = db.exec(select(FindingRow).where(
+            FindingRow.run_id == run_id, FindingRow.question_id == question_id)).all()
+        for r in rows:
+            db.delete(r)
+        db.commit()
+    save_findings(run_id, findings)
+
+
+def save_judgments(run_id: str, judgments: list[Judgment]) -> None:
+    with get_session() as db:
+        for j in judgments:
+            db.add(JudgmentRow(run_id=run_id, question_id=j.question_id,
+                               verdict=j.verdict, reason=j.reason,
+                               consolidated_fixes=j.consolidated_fixes))
+        db.commit()
+
+
+def load_judgments(run_id: str) -> list[Judgment]:
+    with get_session() as db:
+        rows = db.exec(select(JudgmentRow).where(JudgmentRow.run_id == run_id)).all()
+        return [Judgment(question_id=r.question_id, verdict=r.verdict, reason=r.reason,
+                         consolidated_fixes=list(r.consolidated_fixes or [])) for r in rows]
+
+
+def upsert_judgment(run_id: str, judgment: Judgment) -> None:
+    with get_session() as db:
+        rows = db.exec(select(JudgmentRow).where(
+            JudgmentRow.run_id == run_id,
+            JudgmentRow.question_id == judgment.question_id)).all()
+        for r in rows:
+            db.delete(r)
+        db.add(JudgmentRow(run_id=run_id, question_id=judgment.question_id,
+                           verdict=judgment.verdict, reason=judgment.reason,
+                           consolidated_fixes=judgment.consolidated_fixes))
+        db.commit()

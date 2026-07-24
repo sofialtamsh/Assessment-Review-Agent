@@ -1,0 +1,347 @@
+Course,Topic,Unit,What to Cover,Unit Type,PPT,Code Files,Embedded links,Code File,S3 Links,Final Status,Given for Loading,Beta Status,Gamma Status,Review / Updation,Prod Status,Unit Link,s-id,t-id
+Foundations of Computer Vision with CNNs,Foundations of Computer Vision,Introduction to Computer Vision,"What is Computer Vision?
+Real-world applications (autonomous vehicles, healthcare, security, retail, AR/VR)
+Human visual system vs machine vision
+Historical milestones (from edge detection to deep learning era)
+Current industry landscape and career opportunities",Session,Introduction to Computer Vision,,https://docs.google.com/presentation/d/e/2PACX-1vSKGEPwx3m4DznEV8kq70mLt1NhBpRzDPJ89s528v5uzfS9jvvedCGSvhRgljep7_HuPH5GydPPgAtI/pubembed?start=false&loop=false&delayms=3000,,https://media-content.ccbp.in/ccbp_prod/media/video_content/dsml/computer_vision/english/14-04-2026-introductiontoComputerVision-English-V1/video__extension__,PPT Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=3d43a5e2-5b6c-4c34-916a-deeb0b659b61&t_id=1694a86f-d984-4d0a-9ef2-b5f2106a9007,3d43a5e2-5b6c-4c34-916a-deeb0b659b61,1694a86f-d984-4d0a-9ef2-b5f2106a9007
+Foundations of Computer Vision with CNNs,Foundations of Computer Vision,Introduction to Computer Vision,,Tutorial,Introduction to CV - TR - DOC Introduction to CV MCQ-Introduction to CV.zip,,,,,Tutorial/Reading Material Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=4ecbf248-4379-4efb-8fb5-c670294c4959&t_id=1694a86f-d984-4d0a-9ef2-b5f2106a9007,4ecbf248-4379-4efb-8fb5-c670294c4959,1694a86f-d984-4d0a-9ef2-b5f2106a9007
+Foundations of Computer Vision with CNNs,Foundations of Computer Vision,Digital Image Fundamentals,"Image formation process (pinhole camera model)
+Digital image representation (pixels, resolution, bit depth)
+Color models: RGB, Grayscale, HSV, LAB
+Image types and formats (JPEG, PNG, BMP, TIFF)
+Image as NumPy arrays",Session,Digital Image Fundamentals,,https://docs.google.com/presentation/d/e/2PACX-1vTwwzs1cVqacD0PTK2mnvKwOOtt49xtoYMvsI3EJ0_T6Ta8BJ0axvWWDOmhdD0Xskp8u9NZlrsurIxf/pubembed?start=false&loop=false&delayms=3000,,https://media-content.ccbp.in/ccbp_prod/media/video_content/dsml/computer_vision/english/11-04-2026-digitalImageFundamentals-English-V1/video__extension__,PPT Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=516371e3-8543-4dd4-a812-bb801b4498b0&t_id=1694a86f-d984-4d0a-9ef2-b5f2106a9007,516371e3-8543-4dd4-a812-bb801b4498b0,1694a86f-d984-4d0a-9ef2-b5f2106a9007
+Foundations of Computer Vision with CNNs,Foundations of Computer Vision,Digital Image Fundamentals Implementation,"Hands-on: Loading, displaying, manipulating images with OpenCV & PIL",Session,Digital Image Fundamentals Implementation,Digital Image Fundamentals Implementation.ipynb,https://docs.google.com/presentation/d/e/2PACX-1vTQWpfP5kvAx3D4C0LMoFadFM9F1GYsgwtaXkhTHn9ZpF9jmuOesijVDBVbV1dM9-zh-UBSGS0Ll6Vl/pubembed?start=false&loop=false&delayms=3000,,https://media-content.ccbp.in/ccbp_prod/media/video_content/dsml/computer_vision/english/11-04-2026-digitalImageFundamentalsImplementation-English-V1/video__extension__,PPT and Code file completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=663440ec-dda6-4974-902b-1e01aa09e576&t_id=1694a86f-d984-4d0a-9ef2-b5f2106a9007,663440ec-dda6-4974-902b-1e01aa09e576,1694a86f-d984-4d0a-9ef2-b5f2106a9007
+Foundations of Computer Vision with CNNs,Foundations of Computer Vision,Digital Image Fundamentals,,Tutorial,Digital Image Fundamentals - TR - Doc Digital Image Fundamentals MCQ-Digital Image Fundamentals.zip,,,,,Tutorial/Reading Material Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=b5949ea9-86e7-4039-a590-b5cbccc11604&t_id=1694a86f-d984-4d0a-9ef2-b5f2106a9007,b5949ea9-86e7-4039-a590-b5cbccc11604,1694a86f-d984-4d0a-9ef2-b5f2106a9007
+Foundations of Computer Vision with CNNs,Foundations of Computer Vision,Digital Image Fundamentals,,MCQ Practice,MCQ Practice - 1 MCQs_Practice-1.zip,,,,,MCQ completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=f93ff5f3-ffb0-428e-8ce8-452d2e7481de&t_id=1694a86f-d984-4d0a-9ef2-b5f2106a9007,f93ff5f3-ffb0-428e-8ce8-452d2e7481de,1694a86f-d984-4d0a-9ef2-b5f2106a9007
+Foundations of Computer Vision with CNNs,Foundations of Computer Vision,Digital Image Fundamentals,Coding Assignment,Coding Assignment,Code Assignment 1,,,,,Coding assignment completed,Yes,Done,,,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=877554f5-c555-4654-aa6b-3cab6dbd16fc&t_id=1694a86f-d984-4d0a-9ef2-b5f2106a9007,877554f5-c555-4654-aa6b-3cab6dbd16fc,1694a86f-d984-4d0a-9ef2-b5f2106a9007
+Foundations of Computer Vision with CNNs,Foundations of Computer Vision,Foundations of Filtering & Convolution,"What is filtering, the kernel,
+smoothing & sharpening, 
+how convolution works, and its connection to CNNs",Session,Foundations of Filtering & Convolution,,https://docs.google.com/presentation/d/e/2PACX-1vQhkBMZw8XNnAxNFdjfw88wiILiZw2TBE7lsMkjj1w8Y5M6MPxqbKL4O1Gegir5CPHML9PcYMKvUit8/pubembed?start=false&loop=false&delayms=3000,,https://media-content.ccbp.in/ccbp_prod/media/video_content/dsml/computer_vision/english/11-04-2026-foundationsofFilteringAndConvolution-English-V1/video__extension__,PPT Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=6df37cc5-f41a-4fd2-a9d5-a0df897a05d8&t_id=1694a86f-d984-4d0a-9ef2-b5f2106a9007,6df37cc5-f41a-4fd2-a9d5-a0df897a05d8,1694a86f-d984-4d0a-9ef2-b5f2106a9007
+Foundations of Computer Vision with CNNs,Foundations of Computer Vision,Foundations of Filtering & Convolution,,Tutorial,Foundations of Filtering & Convolution - TR - Doc Foundations of Filtering & Convolution MCQ-Foundations of Filtering & Convolution.zip,,,,,Tutorial/Reading Material Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=423d7738-3a45-42bc-ac6c-d5ce3d22dfc4&t_id=1694a86f-d984-4d0a-9ef2-b5f2106a9007,423d7738-3a45-42bc-ac6c-d5ce3d22dfc4,1694a86f-d984-4d0a-9ef2-b5f2106a9007
+Foundations of Computer Vision with CNNs,Foundations of Computer Vision,Foundations of Filtering & Convolution,,MCQ Practice,MCQ - Foundations of Filtering & Convolution MCQs_Practice-2.zip,,,,,MCQ completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=cec86a62-07ce-4913-aa37-16d0f04d7863&t_id=1694a86f-d984-4d0a-9ef2-b5f2106a9007,cec86a62-07ce-4913-aa37-16d0f04d7863,1694a86f-d984-4d0a-9ef2-b5f2106a9007
+Foundations of Computer Vision with CNNs,Foundations of Computer Vision,Foundations of Filtering & Convolution part 2,"Kernel design principles, correlation vs convolution",Session,Foundations of Filtering & Convolution part 2,,https://docs.google.com/presentation/d/e/2PACX-1vQu-qRIuPDdDwIIoy4QZ7E8H8eo5O-pj6BDECQy7S0pIndN5_SQwyuTXwyoK_ea4cjhJEtBaKSgiLy2/pubembed?start=false&loop=false&delayms=3000,,https://media-content.ccbp.in/ccbp_prod/media/video_content/dsml/computer_vision/english/22-04-2026-foundationsofFilteringAndConvolutionPart2-English-V1/video__extension__,PPT Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=5bfebb4f-477e-4323-95dd-e047c7eca952&t_id=1694a86f-d984-4d0a-9ef2-b5f2106a9007,5bfebb4f-477e-4323-95dd-e047c7eca952,1694a86f-d984-4d0a-9ef2-b5f2106a9007
+Foundations of Computer Vision with CNNs,Foundations of Computer Vision,Foundations of Filtering & Convolution part 2,,Tutorial,Part 2 - Foundations of Filtering & Convolution - TR - Doc Part 2 - Foundations of Filtering & Convolution MCQ-Part 2 Foundations of Filtering & Convolution.zip,,,,,Tutorial/Reading Material Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=a75381c8-2a21-47b8-abc4-f4d09f8f2855&t_id=1694a86f-d984-4d0a-9ef2-b5f2106a9007,a75381c8-2a21-47b8-abc4-f4d09f8f2855,1694a86f-d984-4d0a-9ef2-b5f2106a9007
+Foundations of Computer Vision with CNNs,Foundations of Computer Vision,Foundations of Filtering & Convolution part 2,,MCQ Practice,MCQ - Part 2 - Foundations of Filtering & Convolution MCQs_Practice-3.zip,,,,,MCQ completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=9219d3dc-88f3-4108-8737-3cf391fd54f8&t_id=1694a86f-d984-4d0a-9ef2-b5f2106a9007,9219d3dc-88f3-4108-8737-3cf391fd54f8,1694a86f-d984-4d0a-9ef2-b5f2106a9007
+Foundations of Computer Vision with CNNs,Foundations of Computer Vision,Common Filters & Efficiency,"Common filters: Box, Gaussian, Sharpening, Edge Detection, Separable filters",Session,Common Filters & Efficiency,,https://docs.google.com/presentation/d/e/2PACX-1vT6YONsT7rCYzKP8AmXq5TvFfQlJbsEd_PXPcyJht8COAuBu4nFHVn5VFQX-VEajd3kChvjIIHexyNo/pubembed?start=false&loop=false&delayms=3000,,---,PPT Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=2b165890-7553-4b33-9950-f6d088a876d6&t_id=1694a86f-d984-4d0a-9ef2-b5f2106a9007,2b165890-7553-4b33-9950-f6d088a876d6,1694a86f-d984-4d0a-9ef2-b5f2106a9007
+Foundations of Computer Vision with CNNs,Foundations of Computer Vision,Common Filters & Efficiency,,Tutorial,MCQ-Common Filters and Efficiency.zipCommon Filters & Efficiency - TR - Doc Common Filters and Efficiency,,,,,Tutorial/Reading Material Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=0bae5bcd-48d5-425a-b051-a169891a8278&t_id=1694a86f-d984-4d0a-9ef2-b5f2106a9007,0bae5bcd-48d5-425a-b051-a169891a8278,1694a86f-d984-4d0a-9ef2-b5f2106a9007
+Foundations of Computer Vision with CNNs,Foundations of Computer Vision,Common Filters & Efficiency,,MCQ Practice,Common Filters & Efficiency_MCQs MCQs_Practice-4 (Common Filters & Efficiency).zip,,,,,MCQ completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=c20c86c2-c81a-413c-b420-96b0c723aa7e&t_id=1694a86f-d984-4d0a-9ef2-b5f2106a9007,c20c86c2-c81a-413c-b420-96b0c723aa7e,1694a86f-d984-4d0a-9ef2-b5f2106a9007
+Foundations of Computer Vision with CNNs,Foundations of Computer Vision,Filters in Practice,Hands on covering all filters discussed so far,Session,Filters in Practice,Filters in Practice,https://docs.google.com/presentation/d/e/2PACX-1vQL6di2Al65F18jumnA-pKBliA4I9yEOgJEy4BIrl1KbE7yahG4ptxXnn5eeV-Qh4qQIXKUKarkZuWV/pubembed?start=false&loop=false&delayms=3000,,https://media-content.ccbp.in/ccbp_prod/media/video_content/dsml/computer_vision/english/22-04-2026-filtersinPractice-English-V1/video__extension__,PPT and Code file completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=419d4cdc-df48-4b37-aea0-4267c42996cc&t_id=1694a86f-d984-4d0a-9ef2-b5f2106a9007,419d4cdc-df48-4b37-aea0-4267c42996cc,1694a86f-d984-4d0a-9ef2-b5f2106a9007
+Foundations of Computer Vision with CNNs,Foundations of Computer Vision,Filters in Practice ,,Tutorial,Filters in Practice MCQ-Filters in Practice.zip Filters in Practice,,,,,Tutorial/Reading Material Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=657357db-ff9f-4f8e-a192-eaf734a5ab08&t_id=1694a86f-d984-4d0a-9ef2-b5f2106a9007,657357db-ff9f-4f8e-a192-eaf734a5ab08,1694a86f-d984-4d0a-9ef2-b5f2106a9007
+Foundations of Computer Vision with CNNs,Foundations of Computer Vision,Filters in Practice ,,MCQ Practice,Filters in Practice MCQs_Practice-5 (Filters in Practice).zip,,,,,MCQ completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=f06c0430-e822-4b9a-88f1-17a2f16e73c3&t_id=1694a86f-d984-4d0a-9ef2-b5f2106a9007,f06c0430-e822-4b9a-88f1-17a2f16e73c3,1694a86f-d984-4d0a-9ef2-b5f2106a9007
+Foundations of Computer Vision with CNNs,Foundations of Computer Vision,Filters in Practice ,Coding Assignment,Coding Assignment,Code Assignment 2,,,,,Coding assignment completed,Yes,Done,,,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=93289d29-7122-4278-8263-342d211eecf5&t_id=1694a86f-d984-4d0a-9ef2-b5f2106a9007,93289d29-7122-4278-8263-342d211eecf5,1694a86f-d984-4d0a-9ef2-b5f2106a9007
+Foundations of Computer Vision with CNNs,Foundations of Computer Vision,Grand Assignment | Foundations of Computer Vision,,Exam,,,,,,,Yes,Done,,,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=d97ce985-1100-4b09-8ae8-0007ee83b81b&t_id=1694a86f-d984-4d0a-9ef2-b5f2106a9007,d97ce985-1100-4b09-8ae8-0007ee83b81b,1694a86f-d984-4d0a-9ef2-b5f2106a9008
+Foundations of Computer Vision with CNNs,Building CNNs from Scratch,Introduction to Neural Networks for Vision,"Why deep learning revolutionized CV
+From perceptrons to multi-layer networks
+Activation functions (ReLU, Sigmoid, Tanh, LeakyReLU)
+Forward propagation walkthrough
+Loss functions for classification (Cross-Entropy, Softmax)",Session,Introduction to Neural Networks for Vision,,https://docs.google.com/presentation/d/e/2PACX-1vQjFW5aWdYwrMBIc2KpobeZ9uUujMwVWucpqAnv8IIz-LBtGJUzBVOSvwHVDKYnA30DsGB1h5Bu7c51/pubembed?start=false&loop=false&delayms=3000,,https://media-content.ccbp.in/ccbp_prod/media/video_content/dsml/computer_vision/english/22-04-2026-introductiontoNeuralNetworksForVision-English-V1/video__extension__,PPT Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=268f43ae-f0e1-4913-9002-7a538de77828&t_id=d5d70a37-b5ec-4709-a8b9-2060ba3662c3,268f43ae-f0e1-4913-9002-7a538de77828,d5d70a37-b5ec-4709-a8b9-2060ba3662c3
+Foundations of Computer Vision with CNNs,Building CNNs from Scratch,Introduction to Neural Networks for Vision,,Tutorial,Introduction to Neural Networks for Vision MCQ-Introduction to Neural Networks for Vision.zip Introduction to Neural Networks for Vision,,,,,Tutorial/Reading Material Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=b7354caa-26c7-45d9-8d39-3f52d5d067fb&t_id=d5d70a37-b5ec-4709-a8b9-2060ba3662c3,b7354caa-26c7-45d9-8d39-3f52d5d067fb,d5d70a37-b5ec-4709-a8b9-2060ba3662c3
+Foundations of Computer Vision with CNNs,Building CNNs from Scratch,Introduction to Neural Networks for Vision,,MCQ Practice,MCQs_Practice-6 (Introduction to Neural Networks for Vision).zip Introduction to Neural Networks for Vision,,,,,MCQ completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=7579c48a-4df6-4741-8726-0d51712277b8&t_id=d5d70a37-b5ec-4709-a8b9-2060ba3662c3,7579c48a-4df6-4741-8726-0d51712277b8,d5d70a37-b5ec-4709-a8b9-2060ba3662c3
+Foundations of Computer Vision with CNNs,Building CNNs from Scratch,Convolutional Layer Deep Dive,"Why convolution for images? (local connectivity, weight sharing)
+Convolutional layer anatomy
+Learnable filters/kernels
+Feature maps visualization
+Padding types: Valid, Same
+Receptive field concept
+Stride and its effect on output dimensions
+Output size formula: (W - F + 2P) / S + 1",Session,Convolutional Layer Deep Dive,,https://docs.google.com/presentation/d/e/2PACX-1vSoRZNrmx3fxxyjhbXrQaDBZhIONa15geg6zwchUfmTG-MQ8om2CArNAtAfsGpWMHyDW2IX1j89vmj_/pubembed?start=false&loop=false&delayms=3000,,,PPT Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=099181d6-66f4-4e46-9e58-688beab982c2&t_id=d5d70a37-b5ec-4709-a8b9-2060ba3662c3,099181d6-66f4-4e46-9e58-688beab982c2,d5d70a37-b5ec-4709-a8b9-2060ba3662c3
+Foundations of Computer Vision with CNNs,Building CNNs from Scratch,Convolutional Layer Deep Dive Implementation,,Tutorial,Convolutional Layer Deep Dive Convolutional Layer Deep Dive MCQ-Convolutional Layer Deep Dive.zip,,,,,Tutorial/Reading Material Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=35cc70bb-7587-4708-85e2-25b58f05f220&t_id=d5d70a37-b5ec-4709-a8b9-2060ba3662c3,35cc70bb-7587-4708-85e2-25b58f05f220,d5d70a37-b5ec-4709-a8b9-2060ba3662c3
+Foundations of Computer Vision with CNNs,Building CNNs from Scratch,Convolutional Layer Deep Dive Implementation,,MCQ Practice,Convolutional Layer Deep Dive MCQs__Practice-7 (Convolution Layer Deep Dive).zip,,,,,MCQ completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=498a1eff-7339-46b0-8b60-d9f6fda73aff&t_id=d5d70a37-b5ec-4709-a8b9-2060ba3662c3,498a1eff-7339-46b0-8b60-d9f6fda73aff,d5d70a37-b5ec-4709-a8b9-2060ba3662c3
+Foundations of Computer Vision with CNNs,Building CNNs from Scratch,Pooling & Spatial Reduction,"Purpose of pooling (translation invariance, computation reduction)
+Max Pooling vs Average Pooling
+Global Average Pooling (GAP)
+Stride as alternative to pooling
+When NOT to use pooling (dense prediction tasks)
+",Session,Pooling & Spatial Reduction,,https://docs.google.com/presentation/d/e/2PACX-1vQ4_NWEW_6VxxCwvMOfYGRtRDPT33_t4KGPtWHr5ivb617LkNBk95MB8POWFlRgyVE0xxfl4eqDk7lf/pubembed?start=false&loop=false&delayms=3000,,https://media-content.ccbp.in/ccbp_prod/media/video_content/dsml/computer_vision/english/05-05-2026-poolingAndSpatialReduction-English-V1/video__extension__,PPT Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=66375579-80e5-4c53-b6f9-ee85cf15b436&t_id=d5d70a37-b5ec-4709-a8b9-2060ba3662c3,66375579-80e5-4c53-b6f9-ee85cf15b436,d5d70a37-b5ec-4709-a8b9-2060ba3662c3
+Foundations of Computer Vision with CNNs,Building CNNs from Scratch,Pooling & Spatial Reduction,,Tutorial,Pooling & Spatial Reduction Pooling and Spatial Reduction MCQ-Pooling and Spatial Reduction.zip,,,,,Tutorial/Reading Material Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=f34cf102-6ca2-4aa9-af7b-a29618770f59&t_id=d5d70a37-b5ec-4709-a8b9-2060ba3662c3,f34cf102-6ca2-4aa9-af7b-a29618770f59,d5d70a37-b5ec-4709-a8b9-2060ba3662c3
+Foundations of Computer Vision with CNNs,Building CNNs from Scratch,Pooling & Spatial Reduction,,MCQ Practice,MCQs__Practice-8 (Pooling and Spatial Reduction).zip Pooling and Spatial Reduction,,,,,MCQ completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=62f4c93f-08ac-4597-b3df-64a126afb773&t_id=d5d70a37-b5ec-4709-a8b9-2060ba3662c3,62f4c93f-08ac-4597-b3df-64a126afb773,d5d70a37-b5ec-4709-a8b9-2060ba3662c3
+Foundations of Computer Vision with CNNs,Building CNNs from Scratch,Building Your First CNN: Preparing Data,"What CIFAR-10 is and the classification problem
+Loading the dataset and defining transforms
+Creating dataloaders
+Exploring class distribution, sample images, and tensor shapes
+
+",Session,Building Your First CNN: Preparing Data,Building Your First CNN: Preparing Data.ipynb,https://docs.google.com/presentation/d/e/2PACX-1vSyyvuz_ZEqF1xLUXOaFdrnitQ6_kLx_bZ8oNC3GqQPEDUBOnIUzoIbBbOiWEDo52YVPSas5nhofLFO/pubembed?start=false&loop=false&delayms=3000,,https://media-content.ccbp.in/ccbp_prod/media/video_content/dsml/computer_vision/english/06-05-2026-buildingYourFirstCNNPreparingData-English-V1/video__extension__,PPT and Code file completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=3991ba72-d135-4c23-a46e-82b06bb28c3d&t_id=d5d70a37-b5ec-4709-a8b9-2060ba3662c3,3991ba72-d135-4c23-a46e-82b06bb28c3d,d5d70a37-b5ec-4709-a8b9-2060ba3662c3
+Foundations of Computer Vision with CNNs,Building CNNs from Scratch,Building Your First CNN: Preparing Data,,Tutorial,Building Your First CNN: Preparing Data Building Your First CNN: Preparing DataTutorial MCQ-Building 1st CNN Preparing Data.zip,,,,,Tutorial/Reading Material Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=d1c47a67-d4bf-4a9a-8a2a-f5eb0086ed5d&t_id=d5d70a37-b5ec-4709-a8b9-2060ba3662c3,d1c47a67-d4bf-4a9a-8a2a-f5eb0086ed5d,d5d70a37-b5ec-4709-a8b9-2060ba3662c3
+Foundations of Computer Vision with CNNs,Building CNNs from Scratch,Building Your First CNN: Preparing Data,,MCQ Practice,Building Your First CNN: Preparing DataMCQs_Practice-9 (Building 1st CNN Preparing Data).zip,,,,,MCQ completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=f34a1bb2-7158-4a95-b33a-533459014c8b&t_id=d5d70a37-b5ec-4709-a8b9-2060ba3662c3,f34a1bb2-7158-4a95-b33a-533459014c8b,d5d70a37-b5ec-4709-a8b9-2060ba3662c3
+Foundations of Computer Vision with CNNs,Building CNNs from Scratch,Building Your First CNN: Inside the Network,"Tracing a single image through the network
+Conv → BN → ReLU → Pool at each block
+Visualizing feature maps after each step
+Summarizing the shape journey across layers",Session,Building Your First CNN: Inside the Network,Building Your First CNN: Inside the Network.ipynb,https://docs.google.com/presentation/d/e/2PACX-1vRhJ9uNrSRtPWyIFfb_-KT0rOheNiq2Ztq4CFTaEazyPNbVjaoDeH9hOYIN7VlwMsmxA2lVi0SbuVQi/pubembed?start=false&loop=false&delayms=3000,,https://media-content.ccbp.in/ccbp_prod/media/video_content/dsml/computer_vision/english/06-05-2026-buildingYourFirstCNNInsideTheNetwork-English-V1/video__extension__,PPT and Code file completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=75b612f2-862d-47d0-9cb5-7dd909c9cef8&t_id=d5d70a37-b5ec-4709-a8b9-2060ba3662c3,75b612f2-862d-47d0-9cb5-7dd909c9cef8,d5d70a37-b5ec-4709-a8b9-2060ba3662c3
+Foundations of Computer Vision with CNNs,Building CNNs from Scratch,Building Your First CNN: Inside the Network,,Tutorial,Tutorial MCQ-Building CNN Inside Network.zip Building Your First CNN: Inside the Network Building Your First CNN: Inside the Network,,,,,Tutorial/Reading Material Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=90370f09-cf24-45c1-be36-c0dc34161bf5&t_id=d5d70a37-b5ec-4709-a8b9-2060ba3662c3,90370f09-cf24-45c1-be36-c0dc34161bf5,d5d70a37-b5ec-4709-a8b9-2060ba3662c3
+Foundations of Computer Vision with CNNs,Building CNNs from Scratch,Building Your First CNN: Inside the Network,,MCQ Practice,Building Your First CNN: Inside the network MCQs_Practice-10 (Building CNN Inside Network).zip,,,,,MCQ completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=3e614c09-f6f2-4584-b972-904f65b5cccd&t_id=d5d70a37-b5ec-4709-a8b9-2060ba3662c3,3e614c09-f6f2-4584-b972-904f65b5cccd,d5d70a37-b5ec-4709-a8b9-2060ba3662c3
+Foundations of Computer Vision with CNNs,Building CNNs from Scratch,Building Your First CNN: Training & Evaluation,"Wrapping layers into a clean CNN class
+Parameter count and forward pass verification
+Train/val split, loss, optimizer, scheduler
+Training loop with live metrics
+Loss/accuracy curves
+Test accuracy, confusion matrix, and predictions grid
+",Session,Building Your First CNN: Training & Evaluation,Building Your First CNN: Training & Evaluation.ipynb,https://docs.google.com/presentation/d/e/2PACX-1vQ3neBa_WLM3FcHrYHxiqTNQFfMWEntkUll47l0DmdTG-zkl34teZjzSOfLqM-HB8dbAT0RAtfI-mxE/pubembed?start=false&loop=false&delayms=3000,,https://media-content.ccbp.in/ccbp_prod/media/video_content/dsml/computer_vision/english/06-05-2026-buildingYourFirstCNNTrainingAndEvaluation-English-V1/video__extension__,PPT and Code file completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=94036b2b-1484-48c7-8f2a-d7b84e995c02&t_id=d5d70a37-b5ec-4709-a8b9-2060ba3662c3,94036b2b-1484-48c7-8f2a-d7b84e995c02,d5d70a37-b5ec-4709-a8b9-2060ba3662c3
+Foundations of Computer Vision with CNNs,Building CNNs from Scratch,Building Your First CNN: Training & Evaluation,,Tutorial,Building Your First CNN: Training & Evaluation Building Your First CNN: Training & Evaluation Tutorial MCQ-Building CNN Training Evaluation.zip,,,,,Tutorial/Reading Material Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=d351eeb0-8eed-401d-99f7-61a639753f5e&t_id=d5d70a37-b5ec-4709-a8b9-2060ba3662c3,d351eeb0-8eed-401d-99f7-61a639753f5e,d5d70a37-b5ec-4709-a8b9-2060ba3662c3
+Foundations of Computer Vision with CNNs,Building CNNs from Scratch,Building Your First CNN: Training & Evaluation,,MCQ Practice,Building Your First CNN: Training & Evaluation MCQs_Practice-11 (Building CNN Training Evaluation).zip,,,,,MCQ completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=d2790cb2-a89b-4c16-a801-1d04344f648e&t_id=d5d70a37-b5ec-4709-a8b9-2060ba3662c3,d2790cb2-a89b-4c16-a801-1d04344f648e,d5d70a37-b5ec-4709-a8b9-2060ba3662c3
+Foundations of Computer Vision with CNNs,Building CNNs from Scratch,Building Your First CNN: Training & Evaluation,Coding Assignment,Coding Assignment,Code Assignment 3,,,,,Coding assignment completed,Yes,Done,Done,,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=95e19490-3e11-4a87-a2a1-b1c294f03240&t_id=d5d70a37-b5ec-4709-a8b9-2060ba3662c3,95e19490-3e11-4a87-a2a1-b1c294f03240,d5d70a37-b5ec-4709-a8b9-2060ba3662c3
+Foundations of Computer Vision with CNNs,Building CNNs from Scratch,Building Your First CNN: Training & Evaluation,,Exam,,,,,,,Yes,Done,Done,,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=fc73b5c0-40b3-4cd0-871d-e2c8d6f2f07b&t_id=d5d70a37-b5ec-4709-a8b9-2060ba3662c3,fc73b5c0-40b3-4cd0-871d-e2c8d6f2f07b,d5d70a37-b5ec-4709-a8b9-2060ba3662c4
+Foundations of Computer Vision with CNNs,CNN Architectures Evolution,LeNet-5 ,"Historical context (1998, Yann LeCun)
+LeNet-5 architecture breakdown
+Design decisions and their rationale
+From LeNet to modern CNNs",Session,LeNet-5 ,,https://docs.google.com/presentation/d/e/2PACX-1vQwSjkArqYWO-zYj-xcoy-I5tFk6Y8np4qrOwvTTWvdP5ZhPRkiMBus8lfCmlUC0J8KLavSHRJQXPTk/pubembed?start=false&loop=false&delayms=3000,,https://media-content.ccbp.in/ccbp_prod/media/video_content/dsml/computer_vision/english/11-05-2026-leNet5-English-V1/video__extension__,PPT Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=463430d9-141b-4ffd-aa55-a488ad305c63&t_id=427d5f97-7438-4c8c-8701-f5a9b96e2c71,463430d9-141b-4ffd-aa55-a488ad305c63,427d5f97-7438-4c8c-8701-f5a9b96e2c71
+Foundations of Computer Vision with CNNs,CNN Architectures Evolution,LeNet-5 ,,Tutorial,LeNET 5 LeNET-5 Tutorial MCQ-LeNET 5.zip,,,,,Tutorial/Reading Material Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=52df5255-c700-4b58-80fd-f431042a8bc4&t_id=427d5f97-7438-4c8c-8701-f5a9b96e2c71,52df5255-c700-4b58-80fd-f431042a8bc4,427d5f97-7438-4c8c-8701-f5a9b96e2c71
+Foundations of Computer Vision with CNNs,CNN Architectures Evolution,LeNet-5 ,,MCQ Practice,LeNet-5  MCQs_Practice-12 (LeNet-5).zip,,,,,MCQ completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=3b502b02-cedc-4292-810f-1a2b05c84cf2&t_id=427d5f97-7438-4c8c-8701-f5a9b96e2c71,3b502b02-cedc-4292-810f-1a2b05c84cf2,427d5f97-7438-4c8c-8701-f5a9b96e2c71
+Foundations of Computer Vision with CNNs,CNN Architectures Evolution,LeNet-5 Implementation,"Hands-on: Implement LeNet-5 
+Compare with modern equivalent on MNIST",Session,LeNet5 Implementation,LeNet5 Implementation.ipynb,https://docs.google.com/presentation/d/e/2PACX-1vQZ9Ho5HIdfQytlb9VtsCDyT7RocCUZf7fGmrNJ4ZGrHsWwbG0eZw_TFs-B3ztELeVQL58tUtExI8kx/pubembed?start=false&loop=false&delayms=3000,,https://media-content.ccbp.in/ccbp_prod/media/video_content/dsml/computer_vision/english/11-05-2026-leNet5Implementation-English-V1/video__extension__,PPT and Code file completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=8e33c69e-2300-4803-9e42-734546fc7c65&t_id=427d5f97-7438-4c8c-8701-f5a9b96e2c71,8e33c69e-2300-4803-9e42-734546fc7c65,427d5f97-7438-4c8c-8701-f5a9b96e2c71
+Foundations of Computer Vision with CNNs,CNN Architectures Evolution,LeNet-5 Implementation,,Tutorial,LeNET-5 Implementation Tutorial MCQ-LeNET 5 Implementation.zip LeNET 5 Implementation,,,,,Tutorial/Reading Material Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=35e95230-e47d-4ebf-853f-a88786c98410&t_id=427d5f97-7438-4c8c-8701-f5a9b96e2c71,35e95230-e47d-4ebf-853f-a88786c98410,427d5f97-7438-4c8c-8701-f5a9b96e2c71
+Foundations of Computer Vision with CNNs,CNN Architectures Evolution,LeNet-5 Implementation,,MCQ Practice,LeNet-5  Implementation MCQs_Practice-13 (LeNet-5 Implementation).zip,,,,,MCQ completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=862b17ce-f803-44d0-bf46-5221be093471&t_id=427d5f97-7438-4c8c-8701-f5a9b96e2c71,862b17ce-f803-44d0-bf46-5221be093471,427d5f97-7438-4c8c-8701-f5a9b96e2c71
+Foundations of Computer Vision with CNNs,CNN Architectures Evolution,AlexNet,"ImageNet challenge and its impact
+AlexNet architecture (2012)
+Key innovations: ReLU, Dropout, GPU training, LRN
+Data augmentation strategies used
+Why AlexNet changed everything",Session,AlexNet,,https://docs.google.com/presentation/d/e/2PACX-1vSwC303-NVvwe5HH_29mXoxoCnREvrzpbklNKdnboJdQHmaQRQpGmgt-5cXTNMjjvYDRsOqaAGiVfea/pubembed?start=false&loop=false&delayms=3000,,https://media-content.ccbp.in/ccbp_prod/media/video_content/dsml/computer_vision/english/22-05-2026-alexNet-English-V1/video__extension__,PPT Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=6e616c21-b669-44b3-b0c4-c43f6f4bdccd&t_id=427d5f97-7438-4c8c-8701-f5a9b96e2c71,6e616c21-b669-44b3-b0c4-c43f6f4bdccd,427d5f97-7438-4c8c-8701-f5a9b96e2c71
+Foundations of Computer Vision with CNNs,CNN Architectures Evolution,AlexNet,,Tutorial,AlexNET AlexNET,,,,,Tutorial/Reading Material Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=78543b97-29ab-47f9-aeb3-2dc1da75d449&t_id=427d5f97-7438-4c8c-8701-f5a9b96e2c71,78543b97-29ab-47f9-aeb3-2dc1da75d449,427d5f97-7438-4c8c-8701-f5a9b96e2c71
+Foundations of Computer Vision with CNNs,CNN Architectures Evolution,AlexNet,,MCQ Practice,AlexNET MCQs_Practice-14 (AlexNET).zip Tutorial MCQ-AlexNET.zip,,,,,MCQ completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=587d4c3d-8a4c-4ea9-ad11-f5f0869da2f4&t_id=427d5f97-7438-4c8c-8701-f5a9b96e2c71,587d4c3d-8a4c-4ea9-ad11-f5f0869da2f4,427d5f97-7438-4c8c-8701-f5a9b96e2c71
+Foundations of Computer Vision with CNNs,CNN Architectures Evolution,AlexNet Implementation,Hands-on: Implement AlexNet architecture,Session,AlexNet Implementation,AlexNet Implementation.ipynb,https://docs.google.com/presentation/d/e/2PACX-1vSpVEgdL7vM1oEfZjy6pvoL7tq9qPq0eKyYYgpf_5wlTuIbYTZdNsCVZJ20PMze8Z_JU-e3Irs_wpRO/pubembed?start=false&loop=false&delayms=3000,,https://media-content.ccbp.in/ccbp_prod/media/video_content/dsml/computer_vision/english/22-05-2026-alexNetImplementation-English-V1/video__extension__,PPT and Code file completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=f12dcdae-020d-4c95-bfd9-f510011b3f7b&t_id=427d5f97-7438-4c8c-8701-f5a9b96e2c71,f12dcdae-020d-4c95-bfd9-f510011b3f7b,427d5f97-7438-4c8c-8701-f5a9b96e2c71
+Foundations of Computer Vision with CNNs,CNN Architectures Evolution,AlexNet Implementation,,Tutorial,AlexNET Implementation AlexNET Implementation Tutorial MCQ-AlexNET Implementation.zip,,,,,Tutorial/Reading Material Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=1c8f603a-9a66-44fa-a39f-546d84e99a46&t_id=427d5f97-7438-4c8c-8701-f5a9b96e2c71,1c8f603a-9a66-44fa-a39f-546d84e99a46,427d5f97-7438-4c8c-8701-f5a9b96e2c71
+Foundations of Computer Vision with CNNs,CNN Architectures Evolution,AlexNet Implementation,,MCQ Practice,MCQ-AlexNET Implementation MCQs_Practice-15 (AlexNET Implementation).zip,,,,,MCQ completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=9528b977-dee9-414c-b47c-7fc95fda6d7e&t_id=427d5f97-7438-4c8c-8701-f5a9b96e2c71,9528b977-dee9-414c-b47c-7fc95fda6d7e,427d5f97-7438-4c8c-8701-f5a9b96e2c71
+Foundations of Computer Vision with CNNs,CNN Architectures Evolution,VGGNet,"VGG philosophy: simplicity and depth
+VGG-16 and VGG-19 architectures
+3x3 convolution stacking insight
+Computational cost analysis
+VGG as feature extractor",Session,VGGNet,,https://docs.google.com/presentation/d/e/2PACX-1vRn3IKrY-8yV08VHlCbIxnUZN18eMFgmrS09XeccK8p3uAL9gsP1rIyNiownSgFliI4mPz_sl_3exSq/pubembed?start=false&loop=false&delayms=3000,,https://media-content.ccbp.in/ccbp_prod/media/video_content/dsml/computer_vision/english/22-05-2026-vggNet-English-V1/video__extension__,PPT Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=b152c364-30c6-458c-8696-9862c7f96dfd&t_id=427d5f97-7438-4c8c-8701-f5a9b96e2c71,b152c364-30c6-458c-8696-9862c7f96dfd,427d5f97-7438-4c8c-8701-f5a9b96e2c71
+Foundations of Computer Vision with CNNs,CNN Architectures Evolution,VGGNet Implementation,Hands-on: Implement VGG-16 and analyze layer outputs,Session,VGGNet Implementation,VGGNet Implementation.ipynb,https://docs.google.com/presentation/d/e/2PACX-1vRWS3suN6BS23u951Pb6DE5vSxfQgxBdL8VBWoMvq1cZARZxUgWyzlBvISBeDSUue0Q1Gqg_uai0w9t/pubembed?start=false&loop=false&delayms=3000,,https://media-content.ccbp.in/ccbp_prod/media/video_content/dsml/computer_vision/english/22-05-2026-vggNetImplementation-English-V1/video__extension__,PPT and Code file completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=fb300272-e097-4c15-bd84-26203378bb7d&t_id=427d5f97-7438-4c8c-8701-f5a9b96e2c71,fb300272-e097-4c15-bd84-26203378bb7d,427d5f97-7438-4c8c-8701-f5a9b96e2c71
+Foundations of Computer Vision with CNNs,CNN Architectures Evolution,VGGNet,,Tutorial,VGGNet VGGNet Tutorial MCQ-VGGNet.zip,,,,,Tutorial/Reading Material Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=2534e6a7-d3fd-4ea1-95af-5d5d16313c5f&t_id=427d5f97-7438-4c8c-8701-f5a9b96e2c71,2534e6a7-d3fd-4ea1-95af-5d5d16313c5f,427d5f97-7438-4c8c-8701-f5a9b96e2c71
+Foundations of Computer Vision with CNNs,CNN Architectures Evolution,VGGNet,,MCQ Practice,MCQs_Practice-16 (VGGNet).zip VGGNet,,,,,MCQ completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=0669bfec-6860-404f-9429-d45a1b5fcb86&t_id=427d5f97-7438-4c8c-8701-f5a9b96e2c71,0669bfec-6860-404f-9429-d45a1b5fcb86,427d5f97-7438-4c8c-8701-f5a9b96e2c71
+Foundations of Computer Vision with CNNs,CNN Architectures Evolution,Inception & GoogLeNet,"Multi-scale processing motivation
+Inception module design
+1x1 convolutions for dimensionality reduction
+GoogLeNet/Inception v1 architecture
+Auxiliary classifiers
+Inception v2, v3, v4 improvements",Session,Inception & GoogLeNet,,https://docs.google.com/presentation/d/e/2PACX-1vRygT7v0ires-bBAJ51JhMkGLTdtF1MnvoeC7K2901oTu-hAaGOorz49aVUL3XtSaDorAQx87FYvW2c/pubembed?start=false&loop=false&delayms=3000,,https://media-content.ccbp.in/ccbp_prod/media/video_content/dsml/computer_vision/english/22-05-2026-inceptionandGoogLeNet-English-V1/video__extension__,PPT Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=dbd61629-b03e-4889-b9c9-550a4d9692be&t_id=427d5f97-7438-4c8c-8701-f5a9b96e2c71,dbd61629-b03e-4889-b9c9-550a4d9692be,427d5f97-7438-4c8c-8701-f5a9b96e2c71
+Foundations of Computer Vision with CNNs,CNN Architectures Evolution,Inception & GoogLeNet Implementation,Hands-on: Build Inception module,Session,GoogLeNet Implementation,googlenet_Inception_v1  Implementation.ipynb,https://docs.google.com/presentation/d/e/2PACX-1vSNgXzfi8MeFVuOm4RyCzeO3J-j10cTrkSNZqy_SHp4FcaT-U1yUbLCNiJsmBVj8qknBvLFwC2ACIcg/pubembed?start=false&loop=false&delayms=3000,,https://media-content.ccbp.in/ccbp_prod/media/video_content/dsml/computer_vision/english/22-05-2026-inceptionandGoogLeNetImplementation-English-V1/video__extension__,PPT and Code file completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=2e496f18-8392-48c4-8f53-12a7942c7026&t_id=427d5f97-7438-4c8c-8701-f5a9b96e2c71,2e496f18-8392-48c4-8f53-12a7942c7026,427d5f97-7438-4c8c-8701-f5a9b96e2c71
+Foundations of Computer Vision with CNNs,CNN Architectures Evolution,Inception & GoogLeNet,,Tutorial,Inception & GoogleNET Inception & GoogleNET Tutorial MCQ-Inception & GoogleNET.zip,,,,,Tutorial/Reading Material Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=b85cfbb5-205e-4677-8670-a8a95b87bb52&t_id=427d5f97-7438-4c8c-8701-f5a9b96e2c71,b85cfbb5-205e-4677-8670-a8a95b87bb52,427d5f97-7438-4c8c-8701-f5a9b96e2c71
+Foundations of Computer Vision with CNNs,CNN Architectures Evolution,Inception & GoogLeNet,,MCQ Practice,GoogleNET MCQs_Practice-17 (GoogleNet).zip,,,,,MCQ completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=49a510bf-30e3-4f17-8875-42891ec981e9&t_id=427d5f97-7438-4c8c-8701-f5a9b96e2c71,49a510bf-30e3-4f17-8875-42891ec981e9,427d5f97-7438-4c8c-8701-f5a9b96e2c71
+Foundations of Computer Vision with CNNs,CNN Architectures Evolution,Inception & GoogLeNet,Coding Assignment,Coding Assignment,Coding Assignment 4,,,,,Coding assignment completed,Yes,Done,,,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=658ef800-bb9a-4848-8a88-c0e4b3ebe944&t_id=427d5f97-7438-4c8c-8701-f5a9b96e2c71,658ef800-bb9a-4848-8a88-c0e4b3ebe944,427d5f97-7438-4c8c-8701-f5a9b96e2c71
+Foundations of Computer Vision with CNNs,CNN Architectures Evolution,Grand Assignment | CNN Architectures Evolution,,Exam,,,,,,,Yes,Done,,,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=0b50df97-7ca3-4f84-9720-f87ca5beea15&t_id=427d5f97-7438-4c8c-8701-f5a9b96e2c71,0b50df97-7ca3-4f84-9720-f87ca5beea15,427d5f97-7438-4c8c-8701-f5a9b96e2c72
+Foundations of Computer Vision with CNNs,Capstone Project : Medical Image Classification,Problem Statement and Data Exploration,"Project: Image classifier for real-world use case
+Hands-on: End-to-end classification pipeline",Session,Capstone Project : Medical Image Classification,"CV_Project.ipynb
+Capstone: Medical Image Classification",https://docs.google.com/presentation/d/e/2PACX-1vSNgXzfi8MeFVuOm4RyCzeO3J-j10cTrkSNZqy_SHp4FcaT-U1yUbLCNiJsmBVj8qknBvLFwC2ACIcg/pubembed?start=false&loop=false&delayms=3000,,https://media-content.ccbp.in/ccbp_prod/media/video_content/dsml/computer_vision/english/22-05-2026-cPMedicalImageClassificationProblemStatementandDataExploration-English-V1/video__extension__,PPT Completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=7948a50b-4b1f-41e2-a580-01307e752622&t_id=72988c2b-cfac-454d-b707-b781ab3c6450,7948a50b-4b1f-41e2-a580-01307e752622,72988c2b-cfac-454d-b707-b781ab3c6450
+Foundations of Computer Vision with CNNs,Capstone Project : Medical Image Classification,Problem Statement and Data Exploration,,Tutorial,Capstone Project: Medical Image Classification Capstone Project: Medical Image Classification Capstone Project Medical Image Classification.zip,,,,,Tutorial/Reading Material Completed,Yes,Done,Done,Content Changes,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=b9d95252-b7aa-4a29-9aee-a60d0aa8ed13&t_id=72988c2b-cfac-454d-b707-b781ab3c6450,b9d95252-b7aa-4a29-9aee-a60d0aa8ed13,72988c2b-cfac-454d-b707-b781ab3c6450
+Foundations of Computer Vision with CNNs,Capstone Project : Medical Image Classification,Data Loading and Preprocessing,Dataset link: https://s3.ap-south-1.amazonaws.com/new-assets.ccbp.in/frontend/content/aiml/CV/Image_Dataset.zip,Session,CP: Data Loading and Preprocessing,1. Data Loading and Preprocessing.ipynb,https://docs.google.com/presentation/d/e/2PACX-1vRAWwbHgmZWYfJK0n29zYOYwD9GkLER9acIR-BtmGyLNiGlXruqUAZo4WSGFOZTCnJOMZiB9hituPJU/pubembed?start=false&loop=false&delayms=3000,,https://media-content.ccbp.in/ccbp_prod/media/video_content/dsml/computer_vision/english/22-05-2026-cPDataLoadingAndPreprocessing-English-V1/video__extension__,PPT and Code file completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=fff014aa-ee0d-4ec8-ad6a-8a5cd4bbc315&t_id=72988c2b-cfac-454d-b707-b781ab3c6450,fff014aa-ee0d-4ec8-ad6a-8a5cd4bbc315,72988c2b-cfac-454d-b707-b781ab3c6450
+Foundations of Computer Vision with CNNs,Capstone Project : Medical Image Classification,Data Loading and Preprocessing,,Tutorial,CP: Data Loading and Preprocessing CP: Data Loading and Preprocessing CP - Data Loading and Preprocessing.zip,,,,,Tutorial/Reading Material Completed,Yes,Done,Done,Content Changes,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=57efcc67-d7c0-4754-a8c1-6f141a67a55a&t_id=72988c2b-cfac-454d-b707-b781ab3c6450,57efcc67-d7c0-4754-a8c1-6f141a67a55a,72988c2b-cfac-454d-b707-b781ab3c6450
+Foundations of Computer Vision with CNNs,Capstone Project : Medical Image Classification,Model Architecture and Training Setup,,Session,CP: Model Architecture & Training Setup,2. Model Architecture and Training Setup.ipynb,https://docs.google.com/presentation/d/e/2PACX-1vQYQOvhILW0v5690OZAmxQRKDXvBew1V1ORDfcDbme2SjKqA75Z_MZKRdCh874OFajpA4rFbaPSGy5t/pubembed?start=false&loop=false&delayms=3000,,https://media-content.ccbp.in/ccbp_prod/media/video_content/dsml/computer_vision/english/22-05-2026-cPModelArchitectureAndTrainingSetup-English-V1/video__extension__,PPT and Code file completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=c615e078-bc1a-409f-aeae-ae4000fa256d&t_id=72988c2b-cfac-454d-b707-b781ab3c6450,c615e078-bc1a-409f-aeae-ae4000fa256d,72988c2b-cfac-454d-b707-b781ab3c6450
+Foundations of Computer Vision with CNNs,Capstone Project : Medical Image Classification,Model Architecture and Training Setup,,Tutorial,CP: Model Architecture & Training Setup CP: Model Architecture and Training Setup CP - Model Architecture & Training Setup.zip,,,,,Tutorial/Reading Material Completed,Yes,Done,Done,Content Changes,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=f309fe58-8e21-457f-9b60-d8cf2c86e032&t_id=72988c2b-cfac-454d-b707-b781ab3c6450,f309fe58-8e21-457f-9b60-d8cf2c86e032,72988c2b-cfac-454d-b707-b781ab3c6450
+Foundations of Computer Vision with CNNs,Capstone Project : Medical Image Classification,CP: Model Training & Evaluation,,Session,CP: Model Training & Evaluation,3. CP Model Training and Evaluation.ipynb,https://docs.google.com/presentation/d/e/2PACX-1vT6VFtZVhvJtMUHRDhvJR5bENb0mef-84xjHEEtJKu5eLKPPPfTRUlblocjdBWthwgNxZDp1_aOa3MJ/pubembed?start=false&loop=false&delayms=3000,,https://media-content.ccbp.in/ccbp_prod/media/video_content/dsml/computer_vision/english/22-05-2026-cPModelTrainingAndEvaluation-English-V1/video__extension__,PPT and Code file completed,Yes,Done,Done,Done Proceed to Prod,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=6a30f0a0-18b2-4bef-a55d-e7e91c4680bc&t_id=72988c2b-cfac-454d-b707-b781ab3c6450,6a30f0a0-18b2-4bef-a55d-e7e91c4680bc,72988c2b-cfac-454d-b707-b781ab3c6450
+Foundations of Computer Vision with CNNs,Capstone Project : Medical Image Classification,CP: Model Training & Evaluation,,Tutorial,CP: Model Training & Evaluation CP: Model Training & Evaluation CP - Model Training & Evaluation.zip,,,,,Tutorial/Reading Material Completed,Yes,Done,Done,Content Changes,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=52a9296c-8515-41ee-8e68-d84ea6fceeeb&t_id=72988c2b-cfac-454d-b707-b781ab3c6450,52a9296c-8515-41ee-8e68-d84ea6fceeeb,72988c2b-cfac-454d-b707-b781ab3c6450
+Foundations of Computer Vision with CNNs,Capstone Project : Assignment,Plant Disease Classification using CNN,Coding Assignment,Coding Assignment,Capstone Coding Assignment,,,,,Coding assignment completed,Yes,Done,,,Done,https://learning.ccbp.in/course?c_id=9e1a0e9e-e3c3-4a66-9ee2-4ee38027795a&s_id=965bc3d2-7b07-4e9c-8857-067e5dde2786&t_id=72988c2b-cfac-454d-b707-b781ab3c6450,965bc3d2-7b07-4e9c-8857-067e5dde2786,72988c2b-cfac-454d-b707-b781ab3c6450
+,,,,,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Transfer Learning & Fine-tuning,Transfer Learning Fundamentals,"What is transfer learning and why it works
+Pre-trained models as feature extractors
+ImageNet pre-training
+When to use transfer learning vs train from scratch
+Domain shift considerations
+Available pre-trained models (Keras, PyTorch Hub, Hugging Face)",Session,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Transfer Learning & Fine-tuning,Transfer Learning Fundamentals Implementation,Hands-on: Using pre-trained ResNet for feature extraction,Session,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Transfer Learning & Fine-tuning,Transfer Learning Fundamentals,,Tutorial,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Transfer Learning & Fine-tuning,Transfer Learning Fundamentals,,MCQ Practice,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Transfer Learning & Fine-tuning,Fine-tuning Strategies,"Feature extraction vs fine-tuning
+Freezing and unfreezing layers
+Learning rate strategies for fine-tuning
+Discriminative learning rates
+Gradual unfreezing
+Fine-tuning best practices",Session,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Transfer Learning & Fine-tuning,Fine-tuning Strategies Implementation,Hands-on: Fine-tune EfficientNet for custom dataset,Session,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Transfer Learning & Fine-tuning,Fine-tuning Strategies,,Tutorial,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Transfer Learning & Fine-tuning,Fine-tuning Strategies,,MCQ Practice,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Transfer Learning & Fine-tuning,Building Custom Datasets,"Dataset collection strategies
+Web scraping for images (ethical considerations)
+Data cleaning and validation
+Annotation tools (LabelImg, CVAT, Roboflow)
+Dataset versioning (DVC)
+Train/val/test splitting strategies",Session,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Transfer Learning & Fine-tuning,Building Custom Datasets Implementation,Hands-on: Create and prepare custom dataset end-to-end,Session,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Transfer Learning & Fine-tuning,Building Custom Datasets,,Tutorial,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Transfer Learning & Fine-tuning,Building Custom Datasets,,MCQ Practice,,,,,,,,,,,,,,
+,,,,Session,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Object Detection,Object Detection Fundamentals,"Classification vs Detection vs Segmentation
+Bounding box representation
+IoU (Intersection over Union)
+Precision, Recall, mAP metrics
+Non-Maximum Suppression (NMS)
+Anchor boxes concept",Session,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Object Detection,Object Detection Fundamentals,,Tutorial,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Object Detection,Object Detection Fundamentals,,MCQ Practice,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Object Detection,Two-Stage Detectors (R-CNN Family),"Region-based detection approach
+R-CNN: Selective Search + CNN
+Fast R-CNN: ROI Pooling
+Faster R-CNN: Region Proposal Networks (RPN)
+Feature Pyramid Networks (FPN)",Session,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Object Detection,Two-Stage Detectors (R-CNN Family),,Tutorial,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Object Detection,Two-Stage Detectors (R-CNN Family),,MCQ Practice,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Object Detection,One-Stage Detectors (YOLO & SSD),"One-stage vs two-stage tradeoffs
+YOLO evolution: v1 → v3 → v5 → v8
+YOLO architecture deep dive
+SSD (Single Shot Detector)
+RetinaNet and Focal Loss
+Speed vs accuracy comparison",Session,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Object Detection,One-Stage Detectors (YOLO & SSD) Implementation,Hands-on: Real-time detection with YOLOv8,Session,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Object Detection,One-Stage Detectors (YOLO & SSD),,Tutorial,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Object Detection,One-Stage Detectors (YOLO & SSD),,MCQ Practice,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Object Detection,Object Detection Project,"End-to-end detection project setup
+Custom dataset preparation for detection
+Training YOLOv8 on custom data
+Evaluation and error analysis
+Model export (ONNX, TensorRT)
+Deployment considerations
+Hands-on: Complete detection pipeline for real-world use case
+
+Split this into mupltiple sessions as per required",Session,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Object Detection,Object Detection Project,,Session,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Object Detection,Object Detection Project,,Session,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Object Detection,Object Detection Project,,Session,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Image Segmentation,Segmentation Fundamentals,"Semantic vs Instance vs Panoptic segmentation
+Pixel-wise classification
+Evaluation metrics (IoU, Dice, pixel accuracy)
+Fully Convolutional Networks (FCN)
+Encoder-decoder architecture
+Skip connections for fine details",Session,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Image Segmentation,Segmentation Fundamentals Implementation,Hands-on: Implement basic FCN for segmentation,Session,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Image Segmentation,Segmentation Fundamentals,,Tutorial,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Image Segmentation,Segmentation Fundamentals,,MCQ Practice,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Image Segmentation,U-Net & Encoder-Decoder Architectures,"U-Net architecture deep dive
+Skip connections in U-Net
+U-Net for medical imaging
+SegNet architecture
+PSPNet and pyramid pooling
+DeepLab family (v1, v2, v3, v3+)
+Atrous/Dilated convolutions",Session,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Image Segmentation,U-Net & Encoder-Decoder Architectures Implementation,Hands-on: U-Net for medical image segmentation,Session,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Image Segmentation,U-Net & Encoder-Decoder Architectures,,Tutorial,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Image Segmentation,U-Net & Encoder-Decoder Architectures,,MCQ Practice,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Image Segmentation,Instance & Panoptic Segmentation,"Instance segmentation: detecting + segmenting each object
+Mask R-CNN architecture
+ROI Align vs ROI Pooling
+Panoptic segmentation (stuff + things)
+Panoptic FPN",Session,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Image Segmentation,Instance & Panoptic Segmentation Implementation,Hands-on: Instance segmentation with Mask R-CNN,Session,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Image Segmentation,Instance & Panoptic Segmentation,,Tutorial,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Image Segmentation,Instance & Panoptic Segmentation,,MCQ Practice,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Image Segmentation,Image Segmentation Project,"Dataset preparation for segmentation (masks, annotations)
+Training U-Net/DeepLab on custom data
+Data augmentation for segmentation
+Handling class imbalance
+Post-processing techniques
+Hands-on: Complete segmentation pipeline
+
+Split this based on project",Session,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Image Segmentation,Image Segmentation Project,,Session,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Image Segmentation,Image Segmentation Project,,Session,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Image Segmentation,Image Segmentation Project,,Session,,,,,,,,,,,,,,
+AI Vision Systems: Detection & Segmentation,Capstone Project,Self-Driving Vision Module,"Project: Autonomous driving perception stack
+Lane detection
+Traffic sign recognition
+Vehicle and pedestrian detection
+Multi-task learning approach",,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Generative Models for Vision,Introduction to Generative Models,"Discriminative vs Generative models
+Why generate images?
+Taxonomy: GANs, VAEs, Diffusion, Autoregressive
+Applications: synthesis, editing, super-resolution, inpainting
+Evaluation: FID, Inception Score, human evaluation",Session,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Generative Models for Vision,Introduction to Generative Models,,Tutorial,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Generative Models for Vision,Introduction to Generative Models,,MCQ Practice,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Generative Models for Vision,Generative Adversarial Networks (GANs),"GAN concept: Generator vs Discriminator
+Minimax game formulation
+Training dynamics and challenges
+Mode collapse and training instability
+DCGAN architecture
+Conditional GANs",Session,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Generative Models for Vision,Generative Adversarial Networks (GANs) Implementation,Hands-on: Build and train DCGAN on faces,Session,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Generative Models for Vision,Generative Adversarial Networks (GANs),,Tutorial,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Generative Models for Vision,Generative Adversarial Networks (GANs),,MCQ Practice,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Generative Models for Vision,Advanced GANs & Image-to-Image,"StyleGAN: style-based generation
+Progressive growing
+Pix2Pix: paired image translation
+CycleGAN: unpaired translation
+Image editing with GANs
+Super-resolution (SRGAN, ESRGAN)
+Hands-on: Style transfer with CycleGAN",Session,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Generative Models for Vision,Advanced GANs & Image-to-Image Implementation,,Session,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Generative Models for Vision,Advanced GANs & Image-to-Image,,Tutorial,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Generative Models for Vision,Advanced GANs & Image-to-Image,,MCQ Practice,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Generative Models for Vision,Diffusion Models & Modern Generation,"Denoising Diffusion Probabilistic Models (DDPM)
+Forward and reverse process
+Score matching and denoising
+Latent Diffusion Models
+Stable Diffusion architecture overview
+ControlNet for guided generation",Session,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Generative Models for Vision,Diffusion Models & Modern Generation Implementation,Hands-on: Using Stable Diffusion with custom prompts,Session,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Generative Models for Vision,Diffusion Models & Modern Generation,,Tutorial,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Generative Models for Vision,Diffusion Models & Modern Generation,,MCQ Practice,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Vision Transformers & Attention,Attention Mechanisms in Vision,"What is attention? Intuition and motivation
+Self-attention mechanism
+Query, Key, Value computation
+Scaled dot-product attention
+Multi-head attention
+Attention in CNNs (SE-Net, CBAM)",Session,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Vision Transformers & Attention,Attention Mechanisms in Vision Implementation,Hands-on: Implementing self-attention from scratch,Session,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Vision Transformers & Attention,Attention Mechanisms in Vision,,Tutorial,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Vision Transformers & Attention,Attention Mechanisms in Vision,,MCQ Practice,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Vision Transformers & Attention,Vision Transformer (ViT),"Transformers from NLP to Vision
+Image as sequence of patches
+Patch embedding
+Position embeddings for images
+ViT architecture deep dive
+ViT vs CNN comparison
+Pre-training and fine-tuning ViT",Session,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Vision Transformers & Attention,Vision Transformer (ViT) Implementation,Hands-on: Implement ViT from scratch,Session,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Vision Transformers & Attention,Vision Transformer (ViT),,Tutorial,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Vision Transformers & Attention,Vision Transformer (ViT),,MCQ Practice,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Vision Transformers & Attention,Modern Vision Transformers,"DeiT: Data-efficient Image Transformers
+Swin Transformer: hierarchical ViT
+BEiT: BERT pre-training for images
+CLIP: Contrastive Language-Image Pre-training
+DINO: Self-supervised ViT
+Hybrid architectures (CNN + Transformer)",Session,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Vision Transformers & Attention,Modern Vision Transformers,Split the above session,Session,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Vision Transformers & Attention,Modern Vision Transformers,Split the above session,Session,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Vision Transformers & Attention,Vision-Language Models,"Multi-modal learning motivation
+Image captioning architectures
+Visual Question Answering (VQA)
+CLIP deep dive
+BLIP and BLIP-2
+LLaVA and visual instruction tuning",Session,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Vision Transformers & Attention,Vision-Language Models Implementation,Hands-on: Image captioning with BLIP,Session,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Vision Transformers & Attention,Vision-Language Models,,Tutorial,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Vision Transformers & Attention,Vision-Language Models,,MCQ Practice,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Advanced Topics,Self-Supervised Learning for Vision,"Why self-supervised learning?
+Pretext tasks (rotation, jigsaw, colorization)
+Contrastive learning: SimCLR, MoCo
+Non-contrastive: BYOL, SimSiam
+Masked image modeling (MAE, BEiT)
+Foundation models for vision
+",Session,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Advanced Topics,Self-Supervised Learning for Vision,Split the above session into multiple sessions,Session,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Advanced Topics,Self-Supervised Learning for Vision Implementation,Hands-on: Self-supervised pre-training with SimCLR,Session,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Advanced Topics,Self-Supervised Learning for Vision,,Tutorial,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Advanced Topics,Self-Supervised Learning for Vision,,MCQ Practice,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Advanced Topics,Few-Shot & Zero-Shot Learning,"Learning with limited data
+Meta-learning approaches
+Prototypical networks
+Matching networks
+Zero-shot learning with attributes
+CLIP for zero-shot classification",Session,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Advanced Topics,Few-Shot & Zero-Shot Learning Implementation,Hands-on: Few-shot classification with prototypical networks,Session,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Advanced Topics,Few-Shot & Zero-Shot Learning,,Tutorial,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Advanced Topics,Few-Shot & Zero-Shot Learning,,MCQ Practice,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Advanced Topics,Explainability & Robustness,"Why explainability matters
+CAM, Grad-CAM, Grad-CAM++
+Integrated Gradients
+SHAP and LIME for images
+Adversarial examples and attacks (FGSM, PGD)
+Adversarial training and defenses",Session,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Advanced Topics,Explainability & Robustness Implementation,Hands-on: Generating and defending adversarial examples,Session,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Advanced Topics,Explainability & Robustness,,Tutorial,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Advanced Topics,Explainability & Robustness,,MCQ Practice,,,,,,,,,,,,,,
+Generative AI for Vision: Transformers & Diffusion Models,Capstone Project,AI-Powered Vision Application,"Project: End-to-end AI vision product
+Combining detection + segmentation + classification
+API development with FastAPI
+Frontend integration
+Cloud deployment (AWS, GCP, Azure)
+Hands-on: Deploy complete vision AI application",Session,,,,,,,,,,,,,,

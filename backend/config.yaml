@@ -1,0 +1,49 @@
+# Assessment Review Pipeline — configuration
+# Every knob a reviewer might tune lives here so code stays untouched.
+
+llm:
+  # provider: "mock"  -> deterministic canned findings, $0, no API key (demos + tests)
+  # provider: "openrouter" -> real Claude models via OpenRouter (needs OPENROUTER_API_KEY)
+  provider: openrouter
+  openrouter_base_url: https://openrouter.ai/api/v1
+  batch_size: 5            # questions reviewed per LLM call (cost control)
+  max_retries: 4
+  retry_base_delay: 1.0
+
+# Model routing per phase. Cheap/mechanical -> Haiku; semantic-heavy -> Sonnet.
+# IDs are OpenRouter model slugs; change here to re-route without touching code.
+models:
+  phase2_language:  anthropic/claude-haiku-4.5     # small model
+  phase3_ambiguity: anthropic/claude-sonnet-4.5    # mid model
+  phase4_scope:     anthropic/claude-sonnet-4.5    # mid model (RAG)
+  phase5_pedagogy:  anthropic/claude-sonnet-4.5    # mid model
+  phase6_judge:     anthropic/claude-sonnet-4.5    # aggregator
+  phase7_fixer:     anthropic/claude-sonnet-4.5    # regeneration
+
+# $ per 1M tokens, used for the cost report. Keep in sync with OpenRouter pricing.
+pricing:
+  anthropic/claude-haiku-4.5:  {input: 1.0,  output: 5.0}
+  anthropic/claude-sonnet-4.5: {input: 3.0,  output: 15.0}
+
+budget:
+  token_limit: 200000     # hard stop for a single run; 0 = unlimited
+  warn_at: 0.8            # emit a warning finding once 80% consumed
+
+embeddings:
+  # backend: "local"  -> sentence-transformers (all-MiniLM-L6-v2), $0
+  # backend: "voyage" -> Voyage API (needs VOYAGE_API_KEY)
+  backend: local
+  local_model: all-MiniLM-L6-v2
+  voyage_model: voyage-3-lite
+  chunk_tokens: 220       # approx tokens per session-content chunk
+  chunk_overlap: 40
+
+thresholds:
+  exact_dup: 1.0
+  fuzzy_dup: 0.90         # rapidfuzz ratio for near-duplicate flagging
+  semantic_dup: 0.86      # cosine similarity to make a candidate pair for LLM confirmation
+  scope_retrieval_k: 4    # chunks retrieved per question for scope check
+  scope_min_similarity: 0.30
+  verbatim_lift: 0.82     # similarity of a question to a single chunk => possible verbatim lift
+
+db_path: review.db
