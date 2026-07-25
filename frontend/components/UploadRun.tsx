@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   API_BASE,
@@ -84,11 +84,25 @@ export default function UploadRun() {
   const [mContent, setMContent] = useState<File | null>(null);
   const [mSessionId, setMSessionId] = useState("");
 
-  // backend connectivity
+  // backend connectivity — retry to wake a sleeping free-tier backend (cold start)
   const [health, setHealth] = useState<{ ok: boolean; detail: string } | null>(null);
-  useEffect(() => {
-    checkHealth().then(setHealth);
+  const [waking, setWaking] = useState(true);
+  const pingHealth = useCallback(async (attempts = 8) => {
+    setWaking(true);
+    for (let i = 0; i < attempts; i++) {
+      const h = await checkHealth();
+      setHealth(h);
+      if (h.ok) {
+        setWaking(false);
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 4000)); // give the backend time to wake
+    }
+    setWaking(false);
   }, []);
+  useEffect(() => {
+    pingHealth();
+  }, [pingHealth]);
 
   async function refreshUnits() {
     try {
@@ -200,15 +214,26 @@ export default function UploadRun() {
         </p>
       </div>
 
-      {health && !health.ok && (
+      {waking && !health?.ok && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-amber-500 align-middle" />{" "}
+          Waking the backend… (a free Render server sleeps after 15 min and takes ~30–60s to start)
+        </div>
+      )}
+      {!waking && health && !health.ok && (
         <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-          <div className="font-semibold">⚠️ Can&apos;t reach the backend</div>
+          <div className="flex items-center gap-3">
+            <span className="font-semibold">⚠️ Can&apos;t reach the backend</span>
+            <button className="btn-ghost ml-auto px-3 py-1 text-xs" onClick={() => pingHealth()}>
+              Retry
+            </button>
+          </div>
           <div className="mt-1">{health.detail}</div>
           <div className="mt-2 text-rose-700/80">
-            The frontend is calling <code className="rounded bg-white/60 px-1">{API_BASE}</code>.
-            Start the backend (<code className="rounded bg-white/60 px-1">uvicorn app.main:app --port 8000</code>)
-            or set <code className="rounded bg-white/60 px-1">NEXT_PUBLIC_API_BASE_URL</code> to your
-            deployed API URL and restart <code className="rounded bg-white/60 px-1">npm run dev</code>.
+            Calling <code className="rounded bg-white/60 px-1">{API_BASE}</code>. Open{" "}
+            <code className="rounded bg-white/60 px-1">{API_BASE}/health</code> in a tab — if that shows
+            JSON, click Retry (it was just asleep). Otherwise check the Render logs / start command
+            (<code className="rounded bg-white/60 px-1">--host 0.0.0.0 --port $PORT</code>).
           </div>
         </div>
       )}
