@@ -16,11 +16,42 @@ engine = create_engine(
 )
 
 
+# Columns added after the first release. SQLite's create_all won't add columns to
+# an existing table, so we ALTER-add any that are missing (self-healing migration).
+_ADDED_COLUMNS: dict[str, dict[str, str]] = {
+    "sessions": {
+        "content_parsed": "BOOLEAN DEFAULT 0",
+        "mcq_doc_url": "TEXT",
+        "quiz_doc_url": "TEXT",
+        "prepared_sets": "JSON",
+    },
+    "findings": {
+        "related_ids": "JSON",
+    },
+}
+
+
 def init_db() -> None:
     # Import models so their tables register on SQLModel.metadata before create_all.
     from . import models  # noqa: F401
 
     SQLModel.metadata.create_all(engine)
+    _ensure_columns()
+
+
+def _ensure_columns() -> None:
+    from sqlalchemy import text
+
+    with engine.begin() as conn:
+        for table, columns in _ADDED_COLUMNS.items():
+            existing = {
+                row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({table})")
+            }
+            if not existing:
+                continue  # table doesn't exist yet (fresh create_all already made it)
+            for col, decl in columns.items():
+                if col not in existing:
+                    conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {col} {decl}")
 
 
 @contextmanager
