@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { exportUrl, getReport, listInstructions, reportExportUrl } from "@/lib/api";
+import { bulkApprove, exportUrl, getReport, listInstructions, reportExportUrl } from "@/lib/api";
 import type { Instruction, PhaseSummary, QuestionRow, ReportResponse } from "@/lib/types";
 import { BarChart, Donut } from "./charts";
 import FeedbackPanel from "./FeedbackPanel";
@@ -87,6 +87,18 @@ export default function Dashboard({ runId }: { runId: string }) {
     [questions, filter, typeFilter]
   );
 
+  const pendingApprove = questions.filter(
+    (q) => q.judgment?.verdict === "APPROVE" && q.status !== "approved" && q.status !== "deleted"
+  );
+
+  async function approveAll() {
+    if (!pendingApprove.length) return;
+    if (!confirm(`Approve all ${pendingApprove.length} questions the reviewer recommended APPROVE?`))
+      return;
+    await bulkApprove(runId, "approve_verdict");
+    await load();
+  }
+
   if (err) return <p className="text-rose-600">{err}</p>;
   if (!data) return <p className="text-black/40">Loading review…</p>;
 
@@ -95,9 +107,11 @@ export default function Dashboard({ runId }: { runId: string }) {
     value,
     color: BLOOM_COLORS[label] || "#9aa",
   }));
-  const keyBalance = Object.entries(report?.key_balance || {})
+  // always show A–D (plus any other keys present) so a missing key reads as 0, not absent
+  const kb = report?.key_balance || {};
+  const keyBalance = Array.from(new Set(["A", "B", "C", "D", ...Object.keys(kb)]))
     .sort()
-    .map(([label, value]) => ({ label, value }));
+    .map((label) => ({ label, value: kb[label] || 0 }));
   const dupCount = report?.duplicate_clusters.reduce((s, c) => s + c.question_ids.length, 0) || 0;
 
   return (
@@ -179,16 +193,27 @@ export default function Dashboard({ runId }: { runId: string }) {
               </button>
             ))}
           </div>
-          <select
-            className="ml-auto rounded-lg border border-black/10 px-2 py-1 text-xs"
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-          >
-            <option value="ALL">All types</option>
-            <option value="single">single</option>
-            <option value="multi">multi</option>
-            <option value="binary">binary</option>
-          </select>
+          <div className="ml-auto flex items-center gap-2">
+            {pendingApprove.length > 0 && (
+              <button
+                className="btn bg-emerald-600 text-white hover:bg-emerald-700 px-3 py-1.5 text-xs"
+                onClick={approveAll}
+                title="Approve every question the reviewer recommended APPROVE"
+              >
+                ✓ Approve all recommended ({pendingApprove.length})
+              </button>
+            )}
+            <select
+              className="rounded-lg border border-black/10 px-2 py-1 text-xs"
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+            >
+              <option value="ALL">All types</option>
+              <option value="single">single</option>
+              <option value="multi">multi</option>
+              <option value="binary">binary</option>
+            </select>
+          </div>
         </div>
         <table className="w-full text-sm">
           <thead>

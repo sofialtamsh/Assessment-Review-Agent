@@ -93,6 +93,8 @@ async def prepare_and_run(unit_id: str, body: dict = Body(...)) -> dict:
     # 2) questions for the requested set
     try:
         text = fetch_doc_text(doc_url)
+    except PermissionError as e:
+        raise HTTPException(403, str(e))
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, f"Could not fetch the {source_set} document: {e}")
     questions = parse_mcq_text(text, unit_id, source_set, default_topic=row.unit)
@@ -122,8 +124,17 @@ async def prepare_and_run(unit_id: str, body: dict = Body(...)) -> dict:
 
 @app.post("/upload/questions")
 async def upload_questions(file: UploadFile = File(...),
-                           session_id: str = Form("")) -> dict:
-    questions = parse_questions(await file.read(), file.filename, default_session=session_id)
+                           session_id: str = Form(""),
+                           source_set: str = Form("mcq_assignment")) -> dict:
+    data = await file.read()
+    name = (file.filename or "").lower()
+    if name.endswith((".md", ".markdown", ".txt")):
+        # MCQ document format (as exported from a Google Doc): parse questions from text
+        from .ingestion.mcq_text import parse_mcq_text
+        questions = parse_mcq_text(data.decode("utf-8", errors="replace"),
+                                   session_id or "manual", source_set)
+    else:
+        questions = parse_questions(data, file.filename, default_session=session_id)
     store.save_questions(questions)
     summary: dict[str, dict[str, int]] = {}
     for q in questions:
@@ -307,6 +318,33 @@ def approve_question(question_id: str, run_id: str = Query(...)) -> dict:
                                            reason="Approved by reviewer."))
     audit.log("approve", actor="human", run_id=run_id, question_id=question_id)
     return {"question_id": question_id, "status": "approved"}
+
+
+@app.post("/runs/{run_id}/bulk_approve")
+def bulk_approve(run_id: str, body: dict = Body(default={})) -> dict:
+    """Approve many at once. scope='approve_verdict' (default) approves every
+    non-deleted question the Judge recommended APPROVE; scope='all_pending'
+    approves every pending (non-deleted) question."""
+    with get_session() as db:
+        row = db.get(RunRow, run_id)
+        if not row:
+            raise HTTPException(404, "run not found")
+    scope = (body or {}).get("scope", "approve_verdict")
+    judgments = {j.question_id: j.verdict for j in store.load_judgments(run_id)}
+    questions = store.load_questions(row.session_id, row.source_set)
+    approved: list[str] = []
+    for q in questions:
+        cur = store.get_question(q.question_id)
+        status = cur[1] if cur else "pending"
+        if status in ("approved", "deleted"):
+            continue
+        if scope == "approve_verdict" and judgments.get(q.question_id) != "APPROVE":
+            continue
+        store.set_question_status(q.question_id, "approved")
+        approved.append(q.question_id)
+    audit.log("bulk_approve", actor="human", run_id=run_id,
+              detail={"scope": scope, "count": len(approved)})
+    return {"approved": len(approved), "question_ids": approved}
 
 
 @app.post("/questions/{question_id}/delete")

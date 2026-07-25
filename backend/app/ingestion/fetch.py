@@ -38,9 +38,18 @@ def fetch_doc_text(url: str, timeout: float = 45.0) -> str:
     if m:
         export = f"https://docs.google.com/document/d/{m.group(1)}/export?format=txt"
         resp = httpx.get(export, timeout=timeout, follow_redirects=True)
+        if resp.status_code in (401, 403):
+            raise PermissionError(
+                "This Google Doc isn't shared publicly. In Google Drive open it > Share > "
+                "General access > 'Anyone with the link' (Viewer). Or use Advanced > manual "
+                "upload to provide the file for this unit."
+            )
         resp.raise_for_status()
         if "text/html" in resp.headers.get("content-type", ""):
-            raise ValueError("Google Doc is not publicly shared (got a sign-in page).")
+            raise PermissionError(
+                "This Google Doc isn't shared publicly (a sign-in page was returned). Set it to "
+                "'Anyone with the link' (Viewer), or upload the file manually."
+            )
         return resp.text
     # plain text / markdown / other direct URL
     resp = httpx.get(url, timeout=timeout, follow_redirects=True)

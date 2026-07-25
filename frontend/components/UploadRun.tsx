@@ -337,7 +337,7 @@ export default function UploadRun() {
               onChange={(e) => setMSessionId(e.target.value)}
             />
             <div className="grid gap-4 md:grid-cols-2">
-              <DropZone label="Question set" hint="CSV / XLSX / JSON" file={mQuestions} onFile={setMQuestions} />
+              <DropZone label="Question set" hint="CSV / XLSX / JSON / .md (MCQ doc)" file={mQuestions} onFile={setMQuestions} />
               <DropZone label="Session content" hint=".pptx / .pdf / .md" file={mContent} onFile={setMContent} />
             </div>
             <button className="btn-primary" onClick={runManual} disabled={busy || !mSessionId}>

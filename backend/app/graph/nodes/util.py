@@ -1,7 +1,34 @@
 """Shared helpers for agent nodes: dict->Finding conversion + payload builders."""
 from __future__ import annotations
 
+import re
+
 from ...schemas import Finding, Question
+
+_BLOOM_LEVELS = {"Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"}
+
+
+def classify_bloom(stem: str) -> str:
+    """Deterministic Bloom's level from the stem (fallback when the LLM omits it)."""
+    s = stem.lower()
+    if any(k in s for k in ["calculate", "compute", "predict", "what is the predicted",
+                            "if the", "what is likely", "what will happen", "apply",
+                            "given the", "using the"]):
+        return "Apply"
+    if any(k in s for k in ["why", "compare", "best for", "most appropriate", "analyze",
+                            "explains why", "difference between", "reason", "preserves"]):
+        return "Analyze"
+    if any(k in s for k in ["evaluate", "justify", "critique", "which is better", "assess"]):
+        return "Evaluate"
+    if any(k in s for k in ["design", "create", "construct", "propose"]):
+        return "Create"
+    if any(k in s for k in ["what does", "what is", "which of the following is", "indicate",
+                            "suggest", "control", "measure", "stand for", "represent",
+                            "explain", "describe", "purpose of"]):
+        return "Understand"
+    if any(k in s for k in ["denote", "symbol", "define", "list", "name the", "what are the"]):
+        return "Remember"
+    return "Understand"
 
 
 def to_findings(raw: list[dict], model: str | None, phase: str | None = None) -> list[Finding]:

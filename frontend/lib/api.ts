@@ -109,6 +109,19 @@ export async function getReport(runId: string): Promise<ReportResponse> {
   return j(await safeFetch(`/runs/${runId}/report`, { cache: "no-store" }));
 }
 
+export async function bulkApprove(
+  runId: string,
+  scope: "approve_verdict" | "all_pending" = "approve_verdict"
+): Promise<{ approved: number; question_ids: string[] }> {
+  return j(
+    await safeFetch(`/runs/${runId}/bulk_approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scope }),
+    })
+  );
+}
+
 export async function questionAction(
   action: "approve" | "delete",
   questionId: string,
