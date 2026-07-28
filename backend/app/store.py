@@ -83,6 +83,24 @@ def get_unit_row(unit_id: str) -> SessionRow | None:
         return db.get(SessionRow, unit_id)
 
 
+# ---- Batches (multiple units reviewed separately in one action) ----------- #
+def save_batch(batch_id: str, source_set: str, items: list[dict]) -> None:
+    from .models import BatchRow
+    with get_session() as db:
+        db.add(BatchRow(batch_id=batch_id, source_set=source_set, items=items))
+        db.commit()
+
+
+def get_batch(batch_id: str) -> dict | None:
+    from .models import BatchRow
+    with get_session() as db:
+        r = db.get(BatchRow, batch_id)
+        if not r:
+            return None
+        return {"batch_id": r.batch_id, "source_set": r.source_set,
+                "items": list(r.items or []), "created_at": r.created_at.isoformat()}
+
+
 def mark_prepared(unit_id: str, source_set: str) -> None:
     with get_session() as db:
         r = db.get(SessionRow, unit_id)

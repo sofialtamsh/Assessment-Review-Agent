@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   API_BASE,
   checkHealth,
+  createBatch,
   createEvaluation,
   createRun,
   listUnits,
@@ -79,10 +80,11 @@ export default function UploadRun() {
   const [unitId, setUnitId] = useState("");
   const [set, setSet] = useState("mcq_assignment");
 
-  // multi-unit evaluation
-  const [mode, setMode] = useState<"single" | "eval">("single");
+  // multi-unit evaluation / batch
+  const [mode, setMode] = useState<"single" | "eval" | "batch">("single");
   const [evalUnits, setEvalUnits] = useState<string[]>([]);
   const [evalTitle, setEvalTitle] = useState("");
+  const [questionsUrl, setQuestionsUrl] = useState("");
 
   // manual (advanced) flow
   const [showManual, setShowManual] = useState(false);
@@ -191,14 +193,14 @@ export default function UploadRun() {
   }
 
   async function reviewEvaluation() {
-    if (evalUnits.length < 2) {
-      setMsg("Select at least two units for an evaluation.");
+    if (evalUnits.length < 1) {
+      setMsg("Select the unit(s) this evaluation covers.");
       return;
     }
     setStep("preparing");
-    setMsg(`Fetching content & questions from ${evalUnits.length} units…`);
+    setMsg("Fetching the evaluation & the selected units' content…");
     try {
-      const r = await createEvaluation(evalUnits, set, evalTitle);
+      const r = await createEvaluation(evalUnits, set, evalTitle, questionsUrl);
       if (r.warnings?.length) setMsg(r.warnings.join(" · "));
       attachStream(r.run_id);
     } catch (e: any) {
@@ -207,16 +209,31 @@ export default function UploadRun() {
     }
   }
 
+  async function reviewBatch() {
+    if (evalUnits.length < 2) {
+      setMsg("Select at least two units to review as a batch.");
+      return;
+    }
+    setStep("preparing");
+    setMsg(`Starting ${evalUnits.length} separate reviews…`);
+    try {
+      const r = await createBatch(evalUnits, set);
+      router.push(`/batch/${r.batch_id}`);
+    } catch (e: any) {
+      setStep("error");
+      setMsg(e.message || "Could not start the batch");
+    }
+  }
+
   async function runManual() {
     setStep("uploading");
     setMsg("");
     try {
-      if (mQuestions) await uploadFile("/upload/questions", mQuestions, { session_id: mSessionId });
-      if (mContent) {
-        if (!mSessionId) throw new Error("Enter the session id for the content.");
-        await uploadFile("/upload/content", mContent, { session_id: mSessionId });
-      }
-      const { run_id } = await createRun(mSessionId, "mcq_assignment");
+      // auto-generate a storage id if the reviewer didn't name one
+      const sid = mSessionId.trim() || `manual_${Date.now().toString(36)}`;
+      if (mQuestions) await uploadFile("/upload/questions", mQuestions, { session_id: sid });
+      if (mContent) await uploadFile("/upload/content", mContent, { session_id: sid });
+      const { run_id } = await createRun(sid, "mcq_assignment");
       attachStream(run_id);
     } catch (e: any) {
       setStep("error");
@@ -295,10 +312,16 @@ export default function UploadRun() {
                   Single unit
                 </button>
                 <button
+                  className={`rounded-md px-2.5 py-1 ${mode === "batch" ? "bg-white shadow-sm" : "text-black/50"}`}
+                  onClick={() => setMode("batch")}
+                >
+                  Batch (separate)
+                </button>
+                <button
                   className={`rounded-md px-2.5 py-1 ${mode === "eval" ? "bg-white shadow-sm" : "text-black/50"}`}
                   onClick={() => setMode("eval")}
                 >
-                  Evaluation (multi-unit)
+                  Evaluation (combined)
                 </button>
               </div>
             </div>
@@ -357,22 +380,34 @@ export default function UploadRun() {
               </>
             )}
 
-            {mode === "eval" && (
+            {(mode === "eval" || mode === "batch") && (
               <div className="space-y-3">
                 <p className="text-sm text-black/50">
-                  Build one evaluation set from multiple units — questions and content are pulled
-                  from each unit&apos;s links and reviewed together (duplicate, scope &amp; coverage
-                  checks span the whole exam).
+                  {mode === "eval"
+                    ? "Review ONE evaluation against the units it covers. Its content is combined from the units you select, so duplicate, scope & coverage checks span the whole exam. Paste the exam's Google Doc/Slides link, or leave it blank to assemble the set from the units' documents."
+                    : "Review MULTIPLE units separately in one go — each gets its own review. You'll get a combined summary plus a link into each unit's own dashboard."}
                 </p>
                 <div className="flex flex-wrap items-end gap-3">
-                  <input
-                    className="w-64 rounded-xl border border-black/10 px-3 py-2 text-sm"
-                    placeholder="Evaluation title (e.g. CV Mid-term)"
-                    value={evalTitle}
-                    onChange={(e) => setEvalTitle(e.target.value)}
-                  />
+                  {mode === "eval" && (
+                    <>
+                      <input
+                        className="w-52 rounded-xl border border-black/10 px-3 py-2 text-sm"
+                        placeholder="Evaluation title"
+                        value={evalTitle}
+                        onChange={(e) => setEvalTitle(e.target.value)}
+                      />
+                      <input
+                        className="w-72 rounded-xl border border-black/10 px-3 py-2 text-sm"
+                        placeholder="Exam Google Doc/Slides link (optional)"
+                        value={questionsUrl}
+                        onChange={(e) => setQuestionsUrl(e.target.value)}
+                      />
+                    </>
+                  )}
                   <div>
-                    <div className="label mb-1">Questions from</div>
+                    <div className="label mb-1">
+                      {mode === "eval" ? "If no link: assemble from" : "Question source"}
+                    </div>
                     <select
                       className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
                       value={set}
@@ -384,20 +419,27 @@ export default function UploadRun() {
                   </div>
                   <button
                     className="btn-primary ml-auto"
-                    onClick={reviewEvaluation}
-                    disabled={busy || evalUnits.length < 2}
+                    onClick={mode === "eval" ? reviewEvaluation : reviewBatch}
+                    disabled={busy || evalUnits.length < (mode === "eval" ? 1 : 2)}
                   >
                     {step === "preparing"
-                      ? "Building…"
+                      ? mode === "eval" ? "Building…" : "Starting…"
                       : step === "running"
                       ? "Reviewing…"
-                      : `Create & review (${evalUnits.length})`}
+                      : mode === "eval"
+                      ? "Fetch & review evaluation"
+                      : `Review all separately (${evalUnits.length})`}
                   </button>
                 </div>
                 <div className="max-h-64 overflow-y-auto rounded-xl border border-black/[0.06] p-2">
                   {units.map((u) => {
                     const checked = evalUnits.includes(u.unit_id);
-                    const avail = set === "mcq_assignment" ? u.has_mcq_assignment : u.has_in_class_quiz;
+                    const avail =
+                      mode === "eval" && questionsUrl
+                        ? u.has_content
+                        : set === "mcq_assignment"
+                        ? u.has_mcq_assignment
+                        : u.has_in_class_quiz;
                     return (
                       <label
                         key={u.unit_id}
@@ -424,7 +466,8 @@ export default function UploadRun() {
                   })}
                 </div>
                 <div className="text-xs text-black/40">
-                  {evalUnits.length} unit{evalUnits.length === 1 ? "" : "s"} selected (need at least 2).
+                  {evalUnits.length} unit{evalUnits.length === 1 ? "" : "s"} selected (need at least{" "}
+                  {mode === "eval" ? 1 : 2}).
                 </div>
               </div>
             )}
@@ -466,12 +509,13 @@ export default function UploadRun() {
         {showManual && (
           <section className="card mt-3 space-y-4">
             <p className="text-sm text-black/50">
-              For a one-off review from your own files (a CSV/JSON question set and a
-              .pptx/.pdf/.md content file). Enter the session id you want them stored under.
+              For a one-off review from your own files (a CSV/JSON/.md question set and a
+              .pptx/.pdf/.md content file). The name below is just a label to group them —
+              leave it blank and one is generated for you.
             </p>
             <input
               className="w-64 rounded-xl border border-black/10 px-3 py-2 text-sm"
-              placeholder="session id (e.g. ds_07)"
+              placeholder="Name for this review (optional)"
               value={mSessionId}
               onChange={(e) => setMSessionId(e.target.value)}
             />
@@ -479,7 +523,7 @@ export default function UploadRun() {
               <DropZone label="Question set" hint="CSV / XLSX / JSON / .md (MCQ doc)" file={mQuestions} onFile={setMQuestions} />
               <DropZone label="Session content" hint=".pptx / .pdf / .md" file={mContent} onFile={setMContent} />
             </div>
-            <button className="btn-primary" onClick={runManual} disabled={busy || !mSessionId}>
+            <button className="btn-primary" onClick={runManual} disabled={busy || (!mQuestions && !mContent)}>
               Upload &amp; run
             </button>
           </section>

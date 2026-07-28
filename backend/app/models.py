@@ -112,6 +112,14 @@ class JudgmentRow(SQLModel, table=True):
     consolidated_fixes: list = Field(default_factory=list, sa_column=Column(JSON))
 
 
+class BatchRow(SQLModel, table=True):
+    __tablename__ = "batches"
+    batch_id: str = Field(primary_key=True)
+    source_set: str = ""
+    items: list = Field(default_factory=list, sa_column=Column(JSON))  # [{unit_id,unit,run_id,...}]
+    created_at: datetime = Field(default_factory=_now)
+
+
 class AgentInstruction(SQLModel, table=True):
     __tablename__ = "agent_instructions"
     id: Optional[int] = Field(default=None, primary_key=True)

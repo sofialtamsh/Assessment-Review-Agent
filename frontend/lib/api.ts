@@ -77,15 +77,47 @@ export async function prepareAndRun(
 export async function createEvaluation(
   unitIds: string[],
   set: string,
-  title?: string
+  title?: string,
+  questionsUrl?: string
 ): Promise<{ run_id: string; status: string; units: number; questions: number; warnings: string[] }> {
   return j(
     await safeFetch("/units/evaluation", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ unit_ids: unitIds, set, title }),
+      body: JSON.stringify({ unit_ids: unitIds, set, title, questions_url: questionsUrl }),
     })
   );
+}
+
+export async function createBatch(
+  unitIds: string[],
+  set: string
+): Promise<{ batch_id: string; source_set: string; items: any[] }> {
+  return j(
+    await safeFetch("/units/batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ unit_ids: unitIds, set }),
+    })
+  );
+}
+
+export async function getBatch(batchId: string): Promise<{
+  batch_id: string;
+  source_set: string;
+  items: {
+    unit_id: string;
+    unit: string;
+    run_id: string | null;
+    status?: string;
+    questions?: number;
+    error?: string;
+    verdict_counts?: Record<string, number>;
+    total_questions?: number;
+  }[];
+  combined: { total: number; APPROVE: number; REVISE: number; DELETE: number };
+}> {
+  return j(await safeFetch(`/batch/${batchId}`, { cache: "no-store" }));
 }
 
 export async function fetchSessionContent(

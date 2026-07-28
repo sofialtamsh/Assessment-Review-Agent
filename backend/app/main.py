@@ -80,9 +80,10 @@ async def create_evaluation(body: dict = Body(...)) -> dict:
 
     unit_ids = body.get("unit_ids") or []
     source_set = body.get("set", "mcq_assignment")
+    questions_url = (body.get("questions_url") or "").strip()  # existing eval doc/link
     title = (body.get("title") or "").strip() or f"Evaluation ({len(unit_ids)} units)"
-    if len(unit_ids) < 2:
-        raise HTTPException(400, "Select at least two units for a multi-unit evaluation.")
+    if len(unit_ids) < 1:
+        raise HTTPException(400, "Select the unit(s) this evaluation covers.")
     rows = [store.get_unit_row(u) for u in unit_ids]
     if any(r is None for r in rows):
         raise HTTPException(404, "one or more units not found")
@@ -106,8 +107,9 @@ async def create_evaluation(body: dict = Body(...)) -> dict:
     warnings: list[str] = []
     all_chunks = []
     all_questions = []
+
+    # content (scope basis) — combined from every selected unit
     for r in rows:
-        # content (for scope checking) — combined under the eval session
         if r.content_path and str(r.content_path).lower().startswith("http"):
             try:
                 chunks = fetch_content(eval_id, r.content_path)
@@ -116,25 +118,36 @@ async def create_evaluation(body: dict = Body(...)) -> dict:
                 all_chunks += chunks
             except Exception as e:  # noqa: BLE001
                 warnings.append(f"{r.unit}: content skipped ({e})")
-        # questions
-        doc_url = r.mcq_doc_url if source_set == "mcq_assignment" else r.quiz_doc_url
-        if not doc_url:
-            warnings.append(f"{r.unit}: no {source_set} document")
-            continue
+
+    if questions_url:
+        # review the evaluation the user already has (a Google Doc / Slides link)
         try:
-            text = fetch_doc_text(doc_url)
+            text = fetch_doc_text(questions_url)
         except PermissionError as e:
-            warnings.append(f"{r.unit}: {e}")
-            continue
+            raise HTTPException(403, str(e))
         except Exception as e:  # noqa: BLE001
-            warnings.append(f"{r.unit}: doc fetch failed ({e})")
-            continue
-        qs = parse_mcq_text(text, eval_id, "examination", default_topic=r.unit)
-        for q in qs:
-            # keep IDs unique across units so genuine cross-unit duplicates are detected
-            q.question_id = f"{r.session_id[:6]}_{q.question_id}"
-            q.subtopics = list(r.subtopics or [])[:3]
-        all_questions += qs
+            raise HTTPException(502, f"Could not fetch the evaluation document: {e}")
+        all_questions = parse_mcq_text(text, eval_id, "examination", default_topic=title)
+    else:
+        # assemble one set from each selected unit's chosen document
+        for r in rows:
+            doc_url = r.mcq_doc_url if source_set == "mcq_assignment" else r.quiz_doc_url
+            if not doc_url:
+                warnings.append(f"{r.unit}: no {source_set} document")
+                continue
+            try:
+                text = fetch_doc_text(doc_url)
+            except PermissionError as e:
+                warnings.append(f"{r.unit}: {e}")
+                continue
+            except Exception as e:  # noqa: BLE001
+                warnings.append(f"{r.unit}: doc fetch failed ({e})")
+                continue
+            qs = parse_mcq_text(text, eval_id, "examination", default_topic=r.unit)
+            for q in qs:
+                q.question_id = f"{r.session_id[:6]}_{q.question_id}"
+                q.subtopics = list(r.subtopics or [])[:3]
+            all_questions += qs
 
     if not all_questions:
         raise HTTPException(422, "No questions could be fetched from the selected units. "
@@ -156,29 +169,35 @@ async def create_evaluation(body: dict = Body(...)) -> dict:
 async def prepare_and_run(unit_id: str, body: dict = Body(...)) -> dict:
     """One call: fetch this unit's content + questions from the mastersheet links,
     then start the review. `set` is 'mcq_assignment' or 'in_class_quiz'."""
+    source_set = body.get("set", "mcq_assignment")
+    n, warnings = _fetch_unit(unit_id, source_set)
+    audit.log("prepared_from_mastersheet",
+              detail={"unit_id": unit_id, "set": source_set, "questions": n})
+    run_id = manager.create_run(unit_id, source_set)
+    await manager.start(run_id)
+    return {"run_id": run_id, "status": "running", "questions": n, "warnings": warnings}
+
+
+def _fetch_unit(unit_id: str, source_set: str) -> tuple[int, list[str]]:
+    """Fetch a unit's content + questions from its mastersheet links and save them.
+    Returns (num_questions, warnings). Raises HTTPException on hard failure."""
     from .ingestion.fetch import fetch_content, fetch_doc_text
     from .ingestion.mcq_text import parse_mcq_text
 
-    source_set = body.get("set", "mcq_assignment")
     row = store.get_unit_row(unit_id)
     if not row:
         raise HTTPException(404, "unit not found")
-
     doc_url = row.mcq_doc_url if source_set == "mcq_assignment" else row.quiz_doc_url
     if not doc_url:
         raise HTTPException(400, f"This unit has no {source_set} document in the mastersheet.")
 
     warnings: list[str] = []
-
-    # 1) content (session slides) — fetch once
     if row.content_path and str(row.content_path).lower().startswith("http") \
             and not store.load_chunks(unit_id):
         try:
             store.save_chunks(fetch_content(unit_id, row.content_path))
         except Exception as e:  # noqa: BLE001
             warnings.append(f"content fetch failed: {e}")
-
-    # 2) questions for the requested set
     try:
         text = fetch_doc_text(doc_url)
     except PermissionError as e:
@@ -189,25 +208,72 @@ async def prepare_and_run(unit_id: str, body: dict = Body(...)) -> dict:
     if not questions:
         raise HTTPException(422, "Fetched the document but found no parseable MCQs.")
     store.save_questions(questions)
-
-    # 3) for an assignment, also pull the in-class quiz (cross-set overlap check)
     if source_set == "mcq_assignment" and row.quiz_doc_url:
         try:
-            qtext = fetch_doc_text(row.quiz_doc_url)
-            quiz = parse_mcq_text(qtext, unit_id, "in_class_quiz", default_topic=row.unit)
+            quiz = parse_mcq_text(fetch_doc_text(row.quiz_doc_url), unit_id,
+                                  "in_class_quiz", default_topic=row.unit)
             if quiz:
                 store.save_questions(quiz)
         except Exception as e:  # noqa: BLE001
             warnings.append(f"in-class quiz fetch skipped: {e}")
-
     store.mark_prepared(unit_id, source_set)
-    audit.log("prepared_from_mastersheet", detail={
-        "unit_id": unit_id, "set": source_set, "questions": len(questions)})
+    return len(questions), warnings
 
-    run_id = manager.create_run(unit_id, source_set)
-    await manager.start(run_id)
-    return {"run_id": run_id, "status": "running", "questions": len(questions),
-            "warnings": warnings}
+
+@app.post("/units/batch")
+async def batch_review(body: dict = Body(...)) -> dict:
+    """Review multiple units SEPARATELY in one action — each gets its own run.
+    Returns a batch id and one entry per unit (run_id, or an error if it failed)."""
+    import uuid as _uuid
+
+    unit_ids = body.get("unit_ids") or []
+    source_set = body.get("set", "mcq_assignment")
+    if len(unit_ids) < 2:
+        raise HTTPException(400, "Select at least two units for a batch review.")
+    items: list[dict] = []
+    for uid in unit_ids:
+        row = store.get_unit_row(uid)
+        unit_name = row.unit if row else uid
+        try:
+            n, warnings = _fetch_unit(uid, source_set)
+            run_id = manager.create_run(uid, source_set)
+            await manager.start(run_id)
+            items.append({"unit_id": uid, "unit": unit_name, "run_id": run_id,
+                          "questions": n, "warnings": warnings})
+        except HTTPException as e:
+            items.append({"unit_id": uid, "unit": unit_name, "run_id": None,
+                          "error": str(e.detail)})
+    batch_id = "batch_" + _uuid.uuid4().hex[:10]
+    store.save_batch(batch_id, source_set, items)
+    audit.log("batch_review", detail={"batch_id": batch_id, "units": len(unit_ids)})
+    return {"batch_id": batch_id, "source_set": source_set, "items": items}
+
+
+@app.get("/batch/{batch_id}")
+def get_batch(batch_id: str) -> dict:
+    b = store.get_batch(batch_id)
+    if not b:
+        raise HTTPException(404, "batch not found")
+    out_items = []
+    combined = {"total": 0, "APPROVE": 0, "REVISE": 0, "DELETE": 0}
+    for it in b["items"]:
+        entry = dict(it)
+        rid = it.get("run_id")
+        if rid:
+            with get_session() as db:
+                rr = db.get(RunRow, rid)
+            if rr:
+                entry["status"] = rr.status
+                report = rr.report or {}
+                vc = report.get("verdict_counts") or {}
+                entry["verdict_counts"] = vc
+                entry["total_questions"] = report.get("total_questions", 0)
+                combined["total"] += entry["total_questions"]
+                for k in ("APPROVE", "REVISE", "DELETE"):
+                    combined[k] += vc.get(k, 0)
+        out_items.append(entry)
+    return {"batch_id": batch_id, "source_set": b["source_set"],
+            "items": out_items, "combined": combined}
 
 
 @app.post("/upload/questions")
