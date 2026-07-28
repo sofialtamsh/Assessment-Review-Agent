@@ -64,6 +64,94 @@ def list_units() -> dict:
     return {"units": store.list_units()}
 
 
+@app.post("/units/evaluation")
+async def create_evaluation(body: dict = Body(...)) -> dict:
+    """Build a single evaluation set spanning MULTIPLE units and review it as one.
+
+    Content and questions are fetched from each selected unit's mastersheet links and
+    combined, so duplicate/scope/coverage checks run ACROSS the whole exam.
+    `set` chooses the question source per unit ('mcq_assignment' or 'in_class_quiz').
+    """
+    import hashlib
+
+    from .ingestion.fetch import fetch_content, fetch_doc_text
+    from .ingestion.mcq_text import parse_mcq_text
+    from .models import SessionRow
+
+    unit_ids = body.get("unit_ids") or []
+    source_set = body.get("set", "mcq_assignment")
+    title = (body.get("title") or "").strip() or f"Evaluation ({len(unit_ids)} units)"
+    if len(unit_ids) < 2:
+        raise HTTPException(400, "Select at least two units for a multi-unit evaluation.")
+    rows = [store.get_unit_row(u) for u in unit_ids]
+    if any(r is None for r in rows):
+        raise HTTPException(404, "one or more units not found")
+
+    eval_id = "eval_" + hashlib.sha1(
+        ("|".join(sorted(unit_ids)) + source_set).encode()).hexdigest()[:8]
+
+    # synthetic unit/session carrying the union of taught subtopics
+    subtopics: list[str] = []
+    for r in rows:
+        subtopics += list(r.subtopics or [])
+    with get_session() as db:
+        srow = db.get(SessionRow, eval_id) or SessionRow(session_id=eval_id)
+        srow.unit = srow.topic = title
+        srow.course = rows[0].course
+        srow.module = rows[0].module
+        srow.subtopics = subtopics
+        db.add(srow)
+        db.commit()
+
+    warnings: list[str] = []
+    all_chunks = []
+    all_questions = []
+    for r in rows:
+        # content (for scope checking) — combined under the eval session
+        if r.content_path and str(r.content_path).lower().startswith("http"):
+            try:
+                chunks = fetch_content(eval_id, r.content_path)
+                for c in chunks:
+                    c.source_ref = f"{r.unit[:22]} · {c.source_ref}"
+                all_chunks += chunks
+            except Exception as e:  # noqa: BLE001
+                warnings.append(f"{r.unit}: content skipped ({e})")
+        # questions
+        doc_url = r.mcq_doc_url if source_set == "mcq_assignment" else r.quiz_doc_url
+        if not doc_url:
+            warnings.append(f"{r.unit}: no {source_set} document")
+            continue
+        try:
+            text = fetch_doc_text(doc_url)
+        except PermissionError as e:
+            warnings.append(f"{r.unit}: {e}")
+            continue
+        except Exception as e:  # noqa: BLE001
+            warnings.append(f"{r.unit}: doc fetch failed ({e})")
+            continue
+        qs = parse_mcq_text(text, eval_id, "examination", default_topic=r.unit)
+        for q in qs:
+            # keep IDs unique across units so genuine cross-unit duplicates are detected
+            q.question_id = f"{r.session_id[:6]}_{q.question_id}"
+            q.subtopics = list(r.subtopics or [])[:3]
+        all_questions += qs
+
+    if not all_questions:
+        raise HTTPException(422, "No questions could be fetched from the selected units. "
+                            + " | ".join(warnings))
+    store.save_chunks(all_chunks)
+    store.save_questions(all_questions)
+    store.mark_prepared(eval_id, "examination")
+    audit.log("evaluation_created", detail={
+        "eval_id": eval_id, "units": unit_ids, "set": source_set,
+        "questions": len(all_questions)})
+
+    run_id = manager.create_run(eval_id, "examination")
+    await manager.start(run_id)
+    return {"run_id": run_id, "status": "running", "units": len(unit_ids),
+            "questions": len(all_questions), "warnings": warnings}
+
+
 @app.post("/units/{unit_id}/prepare_and_run")
 async def prepare_and_run(unit_id: str, body: dict = Body(...)) -> dict:
     """One call: fetch this unit's content + questions from the mastersheet links,

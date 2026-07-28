@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   API_BASE,
   checkHealth,
+  createEvaluation,
   createRun,
   listUnits,
   prepareAndRun,
@@ -77,6 +78,11 @@ export default function UploadRun() {
   const [units, setUnits] = useState<UnitInfo[]>([]);
   const [unitId, setUnitId] = useState("");
   const [set, setSet] = useState("mcq_assignment");
+
+  // multi-unit evaluation
+  const [mode, setMode] = useState<"single" | "eval">("single");
+  const [evalUnits, setEvalUnits] = useState<string[]>([]);
+  const [evalTitle, setEvalTitle] = useState("");
 
   // manual (advanced) flow
   const [showManual, setShowManual] = useState(false);
@@ -184,6 +190,23 @@ export default function UploadRun() {
     }
   }
 
+  async function reviewEvaluation() {
+    if (evalUnits.length < 2) {
+      setMsg("Select at least two units for an evaluation.");
+      return;
+    }
+    setStep("preparing");
+    setMsg(`Fetching content & questions from ${evalUnits.length} units…`);
+    try {
+      const r = await createEvaluation(evalUnits, set, evalTitle);
+      if (r.warnings?.length) setMsg(r.warnings.join(" · "));
+      attachStream(r.run_id);
+    } catch (e: any) {
+      setStep("error");
+      setMsg(e.message || "Could not build the evaluation");
+    }
+  }
+
   async function runManual() {
     setStep("uploading");
     setMsg("");
@@ -264,7 +287,24 @@ export default function UploadRun() {
             <div className="flex items-center gap-2 pt-2">
               <span className="grid h-6 w-6 place-items-center rounded-full bg-accent-600 text-xs text-white">2</span>
               <span className="font-medium">Pick a unit and what to review</span>
+              <div className="ml-auto flex rounded-lg bg-black/[0.04] p-0.5 text-xs">
+                <button
+                  className={`rounded-md px-2.5 py-1 ${mode === "single" ? "bg-white shadow-sm" : "text-black/50"}`}
+                  onClick={() => setMode("single")}
+                >
+                  Single unit
+                </button>
+                <button
+                  className={`rounded-md px-2.5 py-1 ${mode === "eval" ? "bg-white shadow-sm" : "text-black/50"}`}
+                  onClick={() => setMode("eval")}
+                >
+                  Evaluation (multi-unit)
+                </button>
+              </div>
             </div>
+
+            {mode === "single" && (
+              <>
             <div className="flex flex-wrap items-end gap-4">
               <div className="min-w-[16rem]">
                 <div className="label mb-1">Unit ({units.length})</div>
@@ -312,6 +352,80 @@ export default function UploadRun() {
                 {selected.subtopics.length > 0 && (
                   <span className="text-black/40">· {selected.subtopics.length} taught subtopics</span>
                 )}
+              </div>
+            )}
+              </>
+            )}
+
+            {mode === "eval" && (
+              <div className="space-y-3">
+                <p className="text-sm text-black/50">
+                  Build one evaluation set from multiple units — questions and content are pulled
+                  from each unit&apos;s links and reviewed together (duplicate, scope &amp; coverage
+                  checks span the whole exam).
+                </p>
+                <div className="flex flex-wrap items-end gap-3">
+                  <input
+                    className="w-64 rounded-xl border border-black/10 px-3 py-2 text-sm"
+                    placeholder="Evaluation title (e.g. CV Mid-term)"
+                    value={evalTitle}
+                    onChange={(e) => setEvalTitle(e.target.value)}
+                  />
+                  <div>
+                    <div className="label mb-1">Questions from</div>
+                    <select
+                      className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
+                      value={set}
+                      onChange={(e) => setSet(e.target.value)}
+                    >
+                      <option value="mcq_assignment">each unit&apos;s MCQ assignment</option>
+                      <option value="in_class_quiz">each unit&apos;s in-class quiz</option>
+                    </select>
+                  </div>
+                  <button
+                    className="btn-primary ml-auto"
+                    onClick={reviewEvaluation}
+                    disabled={busy || evalUnits.length < 2}
+                  >
+                    {step === "preparing"
+                      ? "Building…"
+                      : step === "running"
+                      ? "Reviewing…"
+                      : `Create & review (${evalUnits.length})`}
+                  </button>
+                </div>
+                <div className="max-h-64 overflow-y-auto rounded-xl border border-black/[0.06] p-2">
+                  {units.map((u) => {
+                    const checked = evalUnits.includes(u.unit_id);
+                    const avail = set === "mcq_assignment" ? u.has_mcq_assignment : u.has_in_class_quiz;
+                    return (
+                      <label
+                        key={u.unit_id}
+                        className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm ${
+                          avail ? "hover:bg-accent-50/60 cursor-pointer" : "opacity-40"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          disabled={!avail}
+                          checked={checked}
+                          onChange={(e) =>
+                            setEvalUnits(
+                              e.target.checked
+                                ? [...evalUnits, u.unit_id]
+                                : evalUnits.filter((x) => x !== u.unit_id)
+                            )
+                          }
+                        />
+                        <span className="flex-1">{u.unit}</span>
+                        <span className="text-xs text-black/35">{u.module}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                <div className="text-xs text-black/40">
+                  {evalUnits.length} unit{evalUnits.length === 1 ? "" : "s"} selected (need at least 2).
+                </div>
               </div>
             )}
           </>

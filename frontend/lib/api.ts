@@ -74,6 +74,20 @@ export async function prepareAndRun(
   );
 }
 
+export async function createEvaluation(
+  unitIds: string[],
+  set: string,
+  title?: string
+): Promise<{ run_id: string; status: string; units: number; questions: number; warnings: string[] }> {
+  return j(
+    await safeFetch("/units/evaluation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ unit_ids: unitIds, set, title }),
+    })
+  );
+}
+
 export async function fetchSessionContent(
   sessionId: string,
   url?: string
