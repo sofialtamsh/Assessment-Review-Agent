@@ -111,11 +111,21 @@ def _to_pub_url(url: str) -> str:
 # --------------------------------------------------------------------------- #
 # Tutorial cheat-sheet (extra reference content) — a Google Sheet / .xlsx
 # --------------------------------------------------------------------------- #
-def fetch_tutorial_content(session_id: str, url: str, timeout: float = 45.0) -> list["Chunk"]:
-    """Fetch a unit's Tutorial cheat-sheet and chunk it as reference content.
+def looks_like_doc_source(url: str) -> bool:
+    """True if the link is a Google Doc or a direct .doc/.docx — the tutorial doc
+    that also carries the in-class MCQs at the end (vs a .xlsx/Sheet cheat-sheet)."""
+    u = (url or "").strip().lower()
+    return bool(_GDOC.search(u)) or u.split("?")[0].endswith((".doc", ".docx"))
 
-    The link is usually a Google Sheet; we export it as .xlsx and read the
-    `TutorialStep` sheet's `content` column. A direct .xlsx URL works too.
+
+def fetch_tutorial_content(session_id: str, url: str, timeout: float = 45.0) -> list["Chunk"]:
+    """Fetch a unit's Tutorial and chunk it as reference content.
+
+    Two link shapes are supported:
+      * a Google *Doc* (or .doc/.docx) — the tutorial prose (its tail also holds the
+        in-class MCQs, parsed separately); read as plain text and chunked as "Tutorial".
+      * a Google *Sheet* / .xlsx cheat-sheet — export as .xlsx and read the
+        `TutorialStep` sheet's `content` column.
     Chunks are tagged so scope evidence reads "Tutorial …" (vs "Slide …").
     """
     from .tutorial import parse_tutorial
@@ -123,6 +133,11 @@ def fetch_tutorial_content(session_id: str, url: str, timeout: float = 45.0) -> 
     url = (url or "").strip()
     if not url.lower().startswith("http"):
         raise ValueError("tutorial link is not a URL — upload the file instead.")
+
+    # Tutorial *doc*: read the whole document as reference prose.
+    if looks_like_doc_source(url):
+        text = fetch_doc_text(url, timeout)
+        return chunk_segments(session_id, [("Tutorial", text)])
 
     m = _GSHEET.search(url)
     if m:

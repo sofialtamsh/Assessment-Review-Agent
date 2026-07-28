@@ -25,6 +25,7 @@ from ..schemas import UnitSpec
 from .common import split_list
 
 _SLUG = re.compile(r"[^a-z0-9]+")
+_DOC_LINK = re.compile(r"docs\.google\.com/document/", re.I)  # Google Doc URL
 # unit-type prefixes we strip from "<type> | <topic>" to get the grouping key
 _TYPE_PREFIXES = {
     "session", "tutorial", "mcq practice", "mcq", "coding practice", "assignment",
@@ -90,13 +91,25 @@ def parse_mastersheet_xlsx(data: bytes) -> list[UnitSpec]:
             u.unit = unit_name  # bare topic name reads best as the display name
         elif "mcq" in utype:            # "MCQ Practice" -> the assignment (zip or doc)
             u.mcq_doc_url = u.mcq_doc_url or any_link
-        elif "tutorial" in utype:       # tutorial cheat-sheet -> extra reference content
+        elif "tutorial" in utype:       # tutorial: reference content (+ in-class MCQs if a doc)
             u.tutorial_url = u.tutorial_url or any_link
+            # A Tutorial *doc* also carries the in-class MCQs at the end, so it
+            # doubles as the in-class quiz source. A Tutorial *sheet*/.xlsx is
+            # reference content only (no MCQs to parse out of it).
+            if any_link and _looks_like_doc(any_link):
+                u.quiz_doc_url = u.quiz_doc_url or any_link
         # (Coding Assignment / Exam / Project rows are ignored for review sourcing)
 
     # keep only units that have at least a question source or some content
     return [u for u in units.values()
             if u.mcq_doc_url or u.quiz_doc_url or u.content_url or u.tutorial_url]
+
+
+def _looks_like_doc(url: str) -> bool:
+    """True if the link is a Google Doc or a direct .doc/.docx — the tutorial doc
+    whose tail holds the in-class MCQs (a .xlsx/Sheet tutorial has no MCQs)."""
+    u = (url or "").strip().lower()
+    return bool(_DOC_LINK.search(u)) or u.split("?")[0].endswith((".doc", ".docx"))
 
 
 def _topic_key(unit_name: str) -> str:
