@@ -21,6 +21,7 @@ engine = create_engine(
 _ADDED_COLUMNS: dict[str, dict[str, str]] = {
     "sessions": {
         "content_parsed": "BOOLEAN DEFAULT 0",
+        "tutorial_url": "TEXT",
         "mcq_doc_url": "TEXT",
         "quiz_doc_url": "TEXT",
         "prepared_sets": "JSON",

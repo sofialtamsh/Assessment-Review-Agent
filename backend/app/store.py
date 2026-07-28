@@ -55,6 +55,7 @@ def save_units(units: list[UnitSpec]) -> None:
             row.topic = u.unit
             row.subtopics = u.subtopics
             row.content_path = u.content_url
+            row.tutorial_url = u.tutorial_url
             row.mcq_doc_url = u.mcq_doc_url
             row.quiz_doc_url = u.quiz_doc_url
             db.add(row)
@@ -71,6 +72,7 @@ def list_units() -> list[dict]:
                 "unit": r.unit, "subtopics": list(r.subtopics or []),
                 "has_content": bool(r.content_path),
                 "content_parsed": r.content_parsed,
+                "has_tutorial": bool(r.tutorial_url),
                 "has_mcq_assignment": bool(r.mcq_doc_url),
                 "has_in_class_quiz": bool(r.quiz_doc_url),
                 "prepared_sets": list(r.prepared_sets or []),

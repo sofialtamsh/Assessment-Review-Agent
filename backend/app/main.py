@@ -74,8 +74,11 @@ async def create_evaluation(body: dict = Body(...)) -> dict:
     """
     import hashlib
 
-    from .ingestion.fetch import fetch_content, fetch_doc_text
-    from .ingestion.mcq_text import parse_mcq_text
+    from .ingestion.fetch import (
+        fetch_content,
+        fetch_questions,
+        fetch_tutorial_content,
+    )
     from .models import SessionRow
 
     unit_ids = body.get("unit_ids") or []
@@ -108,7 +111,7 @@ async def create_evaluation(body: dict = Body(...)) -> dict:
     all_chunks = []
     all_questions = []
 
-    # content (scope basis) — combined from every selected unit
+    # content (scope basis) — slides + tutorial cheat-sheet, combined from every unit
     for r in rows:
         if r.content_path and str(r.content_path).lower().startswith("http"):
             try:
@@ -117,17 +120,25 @@ async def create_evaluation(body: dict = Body(...)) -> dict:
                     c.source_ref = f"{r.unit[:22]} · {c.source_ref}"
                 all_chunks += chunks
             except Exception as e:  # noqa: BLE001
-                warnings.append(f"{r.unit}: content skipped ({e})")
+                warnings.append(f"{r.unit}: slides skipped ({e})")
+        if r.tutorial_url and str(r.tutorial_url).lower().startswith("http"):
+            try:
+                tchunks = fetch_tutorial_content(eval_id, r.tutorial_url)
+                for c in tchunks:
+                    c.source_ref = f"{r.unit[:22]} · {c.source_ref}"
+                all_chunks += tchunks
+            except Exception as e:  # noqa: BLE001
+                warnings.append(f"{r.unit}: tutorial skipped ({e})")
 
     if questions_url:
-        # review the evaluation the user already has (a Google Doc / Slides link)
+        # review the evaluation the user already has (a Doc/Slides link or an MCQ zip)
         try:
-            text = fetch_doc_text(questions_url)
+            all_questions = fetch_questions(eval_id, questions_url, "examination",
+                                            default_topic=title)
         except PermissionError as e:
             raise HTTPException(403, str(e))
         except Exception as e:  # noqa: BLE001
             raise HTTPException(502, f"Could not fetch the evaluation document: {e}")
-        all_questions = parse_mcq_text(text, eval_id, "examination", default_topic=title)
     else:
         # assemble one set from each selected unit's chosen document
         for r in rows:
@@ -136,14 +147,13 @@ async def create_evaluation(body: dict = Body(...)) -> dict:
                 warnings.append(f"{r.unit}: no {source_set} document")
                 continue
             try:
-                text = fetch_doc_text(doc_url)
+                qs = fetch_questions(eval_id, doc_url, "examination", default_topic=r.unit)
             except PermissionError as e:
                 warnings.append(f"{r.unit}: {e}")
                 continue
             except Exception as e:  # noqa: BLE001
                 warnings.append(f"{r.unit}: doc fetch failed ({e})")
                 continue
-            qs = parse_mcq_text(text, eval_id, "examination", default_topic=r.unit)
             for q in qs:
                 q.question_id = f"{r.session_id[:6]}_{q.question_id}"
                 q.subtopics = list(r.subtopics or [])[:3]
@@ -180,9 +190,14 @@ async def prepare_and_run(unit_id: str, body: dict = Body(...)) -> dict:
 
 def _fetch_unit(unit_id: str, source_set: str) -> tuple[int, list[str]]:
     """Fetch a unit's content + questions from its mastersheet links and save them.
-    Returns (num_questions, warnings). Raises HTTPException on hard failure."""
-    from .ingestion.fetch import fetch_content, fetch_doc_text
-    from .ingestion.mcq_text import parse_mcq_text
+    Returns (num_questions, warnings). Raises HTTPException on hard failure.
+
+    Reference content is the union of the session SLIDES and the TUTORIAL cheat-sheet
+    (both keyed to this unit), so the scope/coverage agent grounds questions against
+    the slides AND the tutorial together. Questions come from the MCQ link (a Drive
+    .zip export, or a Google Doc), chosen automatically by link type.
+    """
+    from .ingestion.fetch import fetch_content, fetch_questions, fetch_tutorial_content
 
     row = store.get_unit_row(unit_id)
     if not row:
@@ -192,30 +207,35 @@ def _fetch_unit(unit_id: str, source_set: str) -> tuple[int, list[str]]:
         raise HTTPException(400, f"This unit has no {source_set} document in the mastersheet.")
 
     warnings: list[str] = []
-    if row.content_path and str(row.content_path).lower().startswith("http") \
-            and not store.load_chunks(unit_id):
-        try:
-            store.save_chunks(fetch_content(unit_id, row.content_path))
-        except Exception as e:  # noqa: BLE001
-            warnings.append(f"content fetch failed: {e}")
+    # --- reference content: slides + tutorial cheat-sheet, combined under this unit ---
+    if not store.load_chunks(unit_id):
+        chunks = []
+        if row.content_path and str(row.content_path).lower().startswith("http"):
+            try:
+                chunks += fetch_content(unit_id, row.content_path)
+            except Exception as e:  # noqa: BLE001
+                warnings.append(f"slides content fetch failed: {e}")
+        if row.tutorial_url and str(row.tutorial_url).lower().startswith("http"):
+            try:
+                chunks += fetch_tutorial_content(unit_id, row.tutorial_url)
+            except PermissionError as e:
+                warnings.append(f"tutorial skipped: {e}")
+            except Exception as e:  # noqa: BLE001
+                warnings.append(f"tutorial fetch failed: {e}")
+        if chunks:
+            store.save_chunks(chunks)
+
+    # --- questions to review ---
     try:
-        text = fetch_doc_text(doc_url)
+        questions = fetch_questions(unit_id, doc_url, source_set, default_topic=row.unit)
     except PermissionError as e:
         raise HTTPException(403, str(e))
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, f"Could not fetch the {source_set} document: {e}")
-    questions = parse_mcq_text(text, unit_id, source_set, default_topic=row.unit)
     if not questions:
         raise HTTPException(422, "Fetched the document but found no parseable MCQs.")
     store.save_questions(questions)
-    if source_set == "mcq_assignment" and row.quiz_doc_url:
-        try:
-            quiz = parse_mcq_text(fetch_doc_text(row.quiz_doc_url), unit_id,
-                                  "in_class_quiz", default_topic=row.unit)
-            if quiz:
-                store.save_questions(quiz)
-        except Exception as e:  # noqa: BLE001
-            warnings.append(f"in-class quiz fetch skipped: {e}")
+
     store.mark_prepared(unit_id, source_set)
     return len(questions), warnings
 

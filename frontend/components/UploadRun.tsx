@@ -370,6 +370,7 @@ export default function UploadRun() {
             {selected && (
               <div className="flex flex-wrap gap-2 text-xs">
                 <Avail ok={selected.has_content} label="slides content" />
+                <Avail ok={selected.has_tutorial} label="tutorial reference" />
                 <Avail ok={selected.has_mcq_assignment} label="MCQ assignment" />
                 <Avail ok={selected.has_in_class_quiz} label="in-class quiz" />
                 {selected.subtopics.length > 0 && (

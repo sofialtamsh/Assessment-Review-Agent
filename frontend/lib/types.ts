@@ -145,6 +145,7 @@ export interface UnitInfo {
   subtopics: string[];
   has_content: boolean;
   content_parsed: boolean;
+  has_tutorial: boolean;
   has_mcq_assignment: boolean;
   has_in_class_quiz: boolean;
   prepared_sets: string[];

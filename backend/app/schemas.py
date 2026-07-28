@@ -42,7 +42,8 @@ class UnitSpec(BaseModel):
     unit: str = ""             # the "Unit" column (the session name)
     subtopics: list[str] = Field(default_factory=list)  # from "What to Cover"
     content_url: str | None = None       # session slides (Embedded links / PPT)
-    mcq_doc_url: str | None = None        # MCQ Practice doc (the assignment)
+    tutorial_url: str | None = None       # Tutorial cheat-sheet (extra reference content)
+    mcq_doc_url: str | None = None        # MCQ Practice doc/zip (the assignment)
     quiz_doc_url: str | None = None       # Tutorial doc (in-class MCQs at the end)
     s_id: str | None = None
 

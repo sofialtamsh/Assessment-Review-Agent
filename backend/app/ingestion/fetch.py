@@ -19,6 +19,9 @@ from .content import chunk_segments, parse_content
 
 _GSLIDES = re.compile(r"docs\.google\.com/presentation", re.I)
 _GDOC = re.compile(r"docs\.google\.com/document/d/([A-Za-z0-9_-]+)", re.I)
+_GSHEET = re.compile(r"docs\.google\.com/spreadsheets/d/([A-Za-z0-9_-]+)", re.I)
+_GDRIVE_FILE = re.compile(r"drive\.google\.com/file/d/([A-Za-z0-9_-]+)", re.I)
+_GDRIVE_UC = re.compile(r"drive\.google\.com/uc\?[^ ]*?id=([A-Za-z0-9_-]+)", re.I)
 _SLIDES_ID = re.compile(r"/presentation/d/(?:e/)?([A-Za-z0-9_-]+)", re.I)
 _PUB_ID = re.compile(r"(/presentation/d/(?:e/)?[^/]+)", re.I)
 _HEX = re.compile(r"\\x([0-9A-Fa-f]{2})")
@@ -103,3 +106,99 @@ def _to_pub_url(url: str) -> str:
     if m:
         return "https://docs.google.com" + m.group(1).rstrip("/") + "/pub"
     return url
+
+
+# --------------------------------------------------------------------------- #
+# Tutorial cheat-sheet (extra reference content) — a Google Sheet / .xlsx
+# --------------------------------------------------------------------------- #
+def fetch_tutorial_content(session_id: str, url: str, timeout: float = 45.0) -> list["Chunk"]:
+    """Fetch a unit's Tutorial cheat-sheet and chunk it as reference content.
+
+    The link is usually a Google Sheet; we export it as .xlsx and read the
+    `TutorialStep` sheet's `content` column. A direct .xlsx URL works too.
+    Chunks are tagged so scope evidence reads "Tutorial …" (vs "Slide …").
+    """
+    from .tutorial import parse_tutorial
+
+    url = (url or "").strip()
+    if not url.lower().startswith("http"):
+        raise ValueError("tutorial link is not a URL — upload the file instead.")
+
+    m = _GSHEET.search(url)
+    if m:
+        export = f"https://docs.google.com/spreadsheets/d/{m.group(1)}/export?format=xlsx"
+        resp = httpx.get(export, timeout=timeout, follow_redirects=True)
+        if resp.status_code in (401, 403):
+            raise PermissionError(
+                "This tutorial Google Sheet isn't shared publicly. Open it > Share > "
+                "General access > 'Anyone with the link' (Viewer)."
+            )
+        resp.raise_for_status()
+        if "text/html" in resp.headers.get("content-type", ""):
+            raise PermissionError(
+                "This tutorial Google Sheet isn't shared publicly (a sign-in page was "
+                "returned). Set it to 'Anyone with the link' (Viewer)."
+            )
+        data = resp.content
+    else:
+        resp = httpx.get(url, timeout=timeout, follow_redirects=True)
+        resp.raise_for_status()
+        data = resp.content
+    return parse_tutorial(session_id, data)
+
+
+# --------------------------------------------------------------------------- #
+# MCQ questions — a Drive-hosted .zip (LMS export) or a Google Doc fallback
+# --------------------------------------------------------------------------- #
+def looks_like_zip_source(url: str) -> bool:
+    """True if the link is a Drive file or a direct .zip (i.e. the LMS MCQ export)."""
+    url = (url or "").strip().lower()
+    return bool(_GDRIVE_FILE.search(url) or _GDRIVE_UC.search(url) or url.endswith(".zip"))
+
+
+def fetch_questions(session_id: str, url: str, source_set: str,
+                    default_topic: str = "", timeout: float = 45.0) -> list["Question"]:
+    """Fetch a unit's MCQs, choosing the parser from the link type:
+    a Drive/.zip link -> the LMS zip parser; anything else -> the Google-Doc text parser.
+    """
+    from .mcq_text import parse_mcq_text
+    from .mcq_zip import parse_mcq_zip
+
+    url = (url or "").strip()
+    if looks_like_zip_source(url):
+        data = _download_drive_file(url, timeout)
+        return parse_mcq_zip(data, session_id, source_set, default_topic=default_topic)
+    text = fetch_doc_text(url, timeout)
+    return parse_mcq_text(text, session_id, source_set, default_topic=default_topic)
+
+
+def _download_drive_file(url: str, timeout: float = 45.0) -> bytes:
+    """Download a Google-Drive-hosted file (or any direct URL) as bytes."""
+    m = _GDRIVE_FILE.search(url) or _GDRIVE_UC.search(url)
+    if m:
+        dl = f"https://drive.google.com/uc?export=download&id={m.group(1)}"
+        resp = httpx.get(dl, timeout=timeout, follow_redirects=True)
+        if resp.status_code in (401, 403):
+            raise PermissionError(
+                "This MCQ file isn't shared publicly. Open it in Drive > Share > "
+                "General access > 'Anyone with the link' (Viewer)."
+            )
+        resp.raise_for_status()
+        ctype = resp.headers.get("content-type", "")
+        # small files download directly; if Drive returns its HTML warning page,
+        # follow the confirm token so we still get the bytes.
+        if "text/html" in ctype:
+            token = re.search(r"confirm=([0-9A-Za-z_-]+)", resp.text)
+            if token:
+                resp = httpx.get(f"{dl}&confirm={token.group(1)}",
+                                 timeout=timeout, follow_redirects=True)
+                resp.raise_for_status()
+            else:
+                raise PermissionError(
+                    "This MCQ file isn't shared publicly (a sign-in page was returned). "
+                    "Set it to 'Anyone with the link' (Viewer)."
+                )
+        return resp.content
+    resp = httpx.get(url, timeout=timeout, follow_redirects=True)
+    resp.raise_for_status()
+    return resp.content
