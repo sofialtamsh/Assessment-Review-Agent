@@ -7,7 +7,9 @@ import {
   checkHealth,
   createBatch,
   createEvaluation,
+  createEvaluationUpload,
   createRun,
+  ingestMastersheetLink,
   listUnits,
   prepareAndRun,
   streamUrl,
@@ -76,6 +78,7 @@ export default function UploadRun() {
 
   // mastersheet-driven flow
   const [master, setMaster] = useState<File | null>(null);
+  const [masterUrl, setMasterUrl] = useState("");
   const [units, setUnits] = useState<UnitInfo[]>([]);
   const [unitId, setUnitId] = useState("");
   const [set, setSet] = useState("mcq_assignment");
@@ -85,6 +88,7 @@ export default function UploadRun() {
   const [evalUnits, setEvalUnits] = useState<string[]>([]);
   const [evalTitle, setEvalTitle] = useState("");
   const [questionsUrl, setQuestionsUrl] = useState("");
+  const [evalFile, setEvalFile] = useState<File | null>(null);
 
   // manual (advanced) flow
   const [showManual, setShowManual] = useState(false);
@@ -175,6 +179,24 @@ export default function UploadRun() {
     }
   }
 
+  async function ingestMasterLink() {
+    if (!masterUrl.trim()) {
+      setMsg("Paste the mastersheet Google Sheet / .xlsx link first.");
+      return;
+    }
+    setStep("uploading");
+    setMsg("Exporting the sheet & reading its links…");
+    try {
+      const r = await ingestMastersheetLink(masterUrl.trim());
+      await refreshUnits();
+      setMsg(`Ingested ${r.ingested} units from the link. Pick one and review — content & questions load from the sheet.`);
+      setStep("idle");
+    } catch (e: any) {
+      setStep("error");
+      setMsg(e.message || "Could not fetch the mastersheet link");
+    }
+  }
+
   async function reviewFromUnit() {
     if (!unitId) {
       setMsg("Select a unit first.");
@@ -198,9 +220,16 @@ export default function UploadRun() {
       return;
     }
     setStep("preparing");
-    setMsg("Fetching the evaluation & the selected units' content…");
+    setMsg(
+      evalFile
+        ? "Parsing the uploaded evaluation & fetching the selected units' content…"
+        : "Fetching the evaluation & the selected units' content…"
+    );
     try {
-      const r = await createEvaluation(evalUnits, set, evalTitle, questionsUrl);
+      // uploaded exam file wins; else a pasted link; else assemble from the units' docs
+      const r = evalFile
+        ? await createEvaluationUpload(evalFile, evalUnits, evalTitle)
+        : await createEvaluation(evalUnits, set, evalTitle, questionsUrl);
       if (r.warnings?.length) setMsg(r.warnings.join(" · "));
       attachStream(r.run_id);
     } catch (e: any) {
@@ -299,6 +328,28 @@ export default function UploadRun() {
           </button>
         </div>
 
+        <div className="flex items-center gap-3 text-xs text-black/35">
+          <span className="h-px flex-1 bg-black/[0.06]" /> or paste a link{" "}
+          <span className="h-px flex-1 bg-black/[0.06]" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
+          <div>
+            <div className="label mb-1">Mastersheet Google Sheet / .xlsx link</div>
+            <input
+              className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm"
+              placeholder="https://docs.google.com/spreadsheets/d/…  (shared 'Anyone with the link')"
+              value={masterUrl}
+              onChange={(e) => setMasterUrl(e.target.value)}
+            />
+            <div className="mt-1 text-xs text-black/35">
+              Exported as .xlsx so cell links are kept. If links don&apos;t come through, download &amp; upload the .xlsx instead.
+            </div>
+          </div>
+          <button className="btn-primary md:mb-1" onClick={ingestMasterLink} disabled={busy}>
+            {step === "uploading" ? "Ingesting…" : "Ingest from link"}
+          </button>
+        </div>
+
         {units.length > 0 && (
           <>
             <div className="flex items-center gap-2 pt-2">
@@ -385,7 +436,7 @@ export default function UploadRun() {
               <div className="space-y-3">
                 <p className="text-sm text-black/50">
                   {mode === "eval"
-                    ? "Review ONE evaluation against the units it covers. Its content is combined from the units you select, so duplicate, scope & coverage checks span the whole exam. Paste the exam's Google Doc/Slides link, or leave it blank to assemble the set from the units' documents."
+                    ? "Review ONE evaluation against the units it covers. Its content is combined from the units you select, so duplicate, scope & coverage checks span the whole exam. Give the exam questions in any of three ways: upload the exam file, paste its Google Doc/Slides link, or leave both blank to assemble the set from the units' own documents."
                     : "Review MULTIPLE units separately in one go — each gets its own review. You'll get a combined summary plus a link into each unit's own dashboard."}
                 </p>
                 <div className="flex flex-wrap items-end gap-3">
@@ -397,21 +448,46 @@ export default function UploadRun() {
                         value={evalTitle}
                         onChange={(e) => setEvalTitle(e.target.value)}
                       />
+                      <div>
+                        <div className="label mb-1">Upload exam file</div>
+                        <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm hover:border-black/20">
+                          <input
+                            type="file"
+                            className="hidden"
+                            onChange={(e) => e.target.files?.[0] && setEvalFile(e.target.files[0])}
+                          />
+                          {evalFile ? (
+                            <span className="chip bg-accent-50 text-accent-700">✓ {evalFile.name}</span>
+                          ) : (
+                            <span className="text-black/40">.zip / .md / .csv / .xlsx / .json</span>
+                          )}
+                        </label>
+                      </div>
+                      {evalFile && (
+                        <button
+                          className="btn-ghost px-2 py-1 text-xs"
+                          onClick={() => setEvalFile(null)}
+                        >
+                          Clear file
+                        </button>
+                      )}
                       <input
-                        className="w-72 rounded-xl border border-black/10 px-3 py-2 text-sm"
-                        placeholder="Exam Google Doc/Slides link (optional)"
+                        className="w-72 rounded-xl border border-black/10 px-3 py-2 text-sm disabled:opacity-40"
+                        placeholder="…or paste exam Google Doc/Slides link"
                         value={questionsUrl}
+                        disabled={!!evalFile}
                         onChange={(e) => setQuestionsUrl(e.target.value)}
                       />
                     </>
                   )}
-                  <div>
+                  <div className={mode === "eval" && (evalFile || questionsUrl) ? "opacity-40" : ""}>
                     <div className="label mb-1">
-                      {mode === "eval" ? "If no link: assemble from" : "Question source"}
+                      {mode === "eval" ? "…or assemble from" : "Question source"}
                     </div>
                     <select
                       className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
                       value={set}
+                      disabled={mode === "eval" && (!!evalFile || !!questionsUrl)}
                       onChange={(e) => setSet(e.target.value)}
                     >
                       <option value="mcq_assignment">each unit&apos;s MCQ assignment</option>
@@ -436,7 +512,7 @@ export default function UploadRun() {
                   {units.map((u) => {
                     const checked = evalUnits.includes(u.unit_id);
                     const avail =
-                      mode === "eval" && questionsUrl
+                      mode === "eval" && (evalFile || questionsUrl)
                         ? u.has_content
                         : set === "mcq_assignment"
                         ? u.has_mcq_assignment

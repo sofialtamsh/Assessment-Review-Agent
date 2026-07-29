@@ -118,6 +118,35 @@ def looks_like_doc_source(url: str) -> bool:
     return bool(_GDOC.search(u)) or u.split("?")[0].endswith((".doc", ".docx"))
 
 
+def fetch_spreadsheet_bytes(url: str, timeout: float = 45.0, *, what: str = "spreadsheet") -> bytes:
+    """Download a spreadsheet as .xlsx bytes.
+
+    A Google Sheet is exported via /export?format=xlsx (this preserves cell hyperlinks,
+    which the mastersheet/tutorial parsers rely on); any other URL is downloaded as-is.
+    `what` only tweaks the not-shared-publicly error message.
+    """
+    url = (url or "").strip()
+    m = _GSHEET.search(url)
+    if m:
+        export = f"https://docs.google.com/spreadsheets/d/{m.group(1)}/export?format=xlsx"
+        resp = httpx.get(export, timeout=timeout, follow_redirects=True)
+        if resp.status_code in (401, 403):
+            raise PermissionError(
+                f"This {what} Google Sheet isn't shared publicly. Open it > Share > "
+                "General access > 'Anyone with the link' (Viewer)."
+            )
+        resp.raise_for_status()
+        if "text/html" in resp.headers.get("content-type", ""):
+            raise PermissionError(
+                f"This {what} Google Sheet isn't shared publicly (a sign-in page was "
+                "returned). Set it to 'Anyone with the link' (Viewer)."
+            )
+        return resp.content
+    resp = httpx.get(url, timeout=timeout, follow_redirects=True)
+    resp.raise_for_status()
+    return resp.content
+
+
 def fetch_tutorial_content(session_id: str, url: str, timeout: float = 45.0) -> list["Chunk"]:
     """Fetch a unit's Tutorial and chunk it as reference content.
 
@@ -139,26 +168,7 @@ def fetch_tutorial_content(session_id: str, url: str, timeout: float = 45.0) -> 
         text = fetch_doc_text(url, timeout)
         return chunk_segments(session_id, [("Tutorial", text)])
 
-    m = _GSHEET.search(url)
-    if m:
-        export = f"https://docs.google.com/spreadsheets/d/{m.group(1)}/export?format=xlsx"
-        resp = httpx.get(export, timeout=timeout, follow_redirects=True)
-        if resp.status_code in (401, 403):
-            raise PermissionError(
-                "This tutorial Google Sheet isn't shared publicly. Open it > Share > "
-                "General access > 'Anyone with the link' (Viewer)."
-            )
-        resp.raise_for_status()
-        if "text/html" in resp.headers.get("content-type", ""):
-            raise PermissionError(
-                "This tutorial Google Sheet isn't shared publicly (a sign-in page was "
-                "returned). Set it to 'Anyone with the link' (Viewer)."
-            )
-        data = resp.content
-    else:
-        resp = httpx.get(url, timeout=timeout, follow_redirects=True)
-        resp.raise_for_status()
-        data = resp.content
+    data = fetch_spreadsheet_bytes(url, timeout, what="tutorial")
     return parse_tutorial(session_id, data)
 
 

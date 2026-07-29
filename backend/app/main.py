@@ -59,42 +59,69 @@ async def upload_mastersheet(file: UploadFile = File(...)) -> dict:
             "sessions": [s.model_dump() for s in sessions]}
 
 
+@app.post("/ingest/mastersheet_link")
+async def ingest_mastersheet_link(body: dict = Body(...)) -> dict:
+    """Ingest the mastersheet straight from a Google Sheet (or .xlsx) link — no download.
+
+    The sheet is exported as .xlsx so its cell hyperlinks (slide / doc / zip links) are
+    preserved, exactly like uploading the .xlsx. If the export drops the hyperlinks (a
+    known Google Sheets quirk for HYPERLINK()-formula cells), no units survive and we tell
+    the reviewer to fall back to uploading the .xlsx.
+    """
+    from .ingestion.fetch import fetch_spreadsheet_bytes
+    from .ingestion.mastersheet_xlsx import parse_mastersheet_xlsx
+
+    url = (body.get("url") or "").strip()
+    if not url.lower().startswith("http"):
+        raise HTTPException(400, "Paste a Google Sheet or .xlsx URL.")
+    try:
+        data = fetch_spreadsheet_bytes(url, what="mastersheet")
+    except PermissionError as e:
+        raise HTTPException(403, str(e))
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, f"Could not fetch the mastersheet link: {e}")
+
+    units = parse_mastersheet_xlsx(data)
+    if not units:
+        raise HTTPException(422,
+            "Fetched the sheet but found no units with links. The Google Sheet export may "
+            "have dropped the cell hyperlinks (a known quirk for HYPERLINK()-formula cells). "
+            "Download the sheet as .xlsx (File > Download > Microsoft Excel) and upload it.")
+    store.save_units(units)
+    return {"mode": "units", "ingested": len(units),
+            "units": [u.model_dump() for u in units]}
+
+
 @app.get("/units")
 def list_units() -> dict:
     return {"units": store.list_units()}
 
 
-@app.post("/units/evaluation")
-async def create_evaluation(body: dict = Body(...)) -> dict:
-    """Build a single evaluation set spanning MULTIPLE units and review it as one.
-
-    Content and questions are fetched from each selected unit's mastersheet links and
-    combined, so duplicate/scope/coverage checks run ACROSS the whole exam.
-    `set` chooses the question source per unit ('mcq_assignment' or 'in_class_quiz').
-    """
-    import hashlib
-
-    from .ingestion.fetch import (
-        fetch_content,
-        fetch_questions,
-        fetch_tutorial_content,
-    )
-    from .models import SessionRow
-
-    unit_ids = body.get("unit_ids") or []
-    source_set = body.get("set", "mcq_assignment")
-    questions_url = (body.get("questions_url") or "").strip()  # existing eval doc/link
-    title = (body.get("title") or "").strip() or f"Evaluation ({len(unit_ids)} units)"
+# --------------------------------------------------------------------------- #
+# Evaluation (combined) — shared helpers
+# --------------------------------------------------------------------------- #
+def _resolve_eval_units(unit_ids: list[str]) -> list:
+    """Validate the selected units and return their rows (raises on empty / missing)."""
     if len(unit_ids) < 1:
         raise HTTPException(400, "Select the unit(s) this evaluation covers.")
     rows = [store.get_unit_row(u) for u in unit_ids]
     if any(r is None for r in rows):
         raise HTTPException(404, "one or more units not found")
+    return rows
 
-    eval_id = "eval_" + hashlib.sha1(
-        ("|".join(sorted(unit_ids)) + source_set).encode()).hexdigest()[:8]
 
-    # synthetic unit/session carrying the union of taught subtopics
+def _eval_id_for(unit_ids: list[str], salt: str) -> str:
+    """Stable id for an evaluation over a set of units (salt distinguishes sources)."""
+    import hashlib
+
+    return "eval_" + hashlib.sha1(
+        ("|".join(sorted(unit_ids)) + salt).encode()).hexdigest()[:8]
+
+
+def _save_eval_session(eval_id: str, title: str, rows: list) -> None:
+    """Persist the synthetic session carrying the union of the units' taught subtopics."""
+    from .models import SessionRow
+
     subtopics: list[str] = []
     for r in rows:
         subtopics += list(r.subtopics or [])
@@ -107,11 +134,13 @@ async def create_evaluation(body: dict = Body(...)) -> dict:
         db.add(srow)
         db.commit()
 
-    warnings: list[str] = []
-    all_chunks = []
-    all_questions = []
 
-    # content (scope basis) — slides + tutorial cheat-sheet, combined from every unit
+def _fetch_eval_content(eval_id: str, rows: list) -> tuple[list, list[str]]:
+    """Reference content (scope basis): each unit's slides + tutorial, combined."""
+    from .ingestion.fetch import fetch_content, fetch_tutorial_content
+
+    warnings: list[str] = []
+    all_chunks: list = []
     for r in rows:
         if r.content_path and str(r.content_path).lower().startswith("http"):
             try:
@@ -129,7 +158,71 @@ async def create_evaluation(body: dict = Body(...)) -> dict:
                 all_chunks += tchunks
             except Exception as e:  # noqa: BLE001
                 warnings.append(f"{r.unit}: tutorial skipped ({e})")
+    return all_chunks, warnings
 
+
+async def _finalize_evaluation(eval_id: str, unit_ids: list[str], all_chunks: list,
+                               all_questions: list, warnings: list[str]) -> dict:
+    """Persist the assembled evaluation, kick off the review, return the run payload."""
+    if not all_questions:
+        raise HTTPException(422, "No questions could be assembled for this evaluation. "
+                            + " | ".join(warnings))
+    store.save_chunks(all_chunks)
+    store.save_questions(all_questions)
+    store.mark_prepared(eval_id, "examination")
+    audit.log("evaluation_created", detail={
+        "eval_id": eval_id, "units": unit_ids, "questions": len(all_questions)})
+
+    run_id = manager.create_run(eval_id, "examination")
+    await manager.start(run_id)
+    return {"run_id": run_id, "status": "running", "units": len(unit_ids),
+            "questions": len(all_questions), "warnings": warnings}
+
+
+def _parse_eval_upload(data: bytes, filename: str, eval_id: str, title: str) -> list:
+    """Parse an uploaded evaluation file into questions tagged as the 'examination' set.
+
+    Accepts the same shapes the assignment/quiz sources use: a .zip LMS export, a
+    Google-Doc-style .md/.txt, or a CSV/XLSX/JSON question set.
+    """
+    name = filename.lower()
+    if name.endswith(".zip"):
+        from .ingestion.mcq_zip import parse_mcq_zip
+        qs = parse_mcq_zip(data, eval_id, "examination", default_topic=title)
+    elif name.endswith((".md", ".markdown", ".txt")):
+        from .ingestion.mcq_text import parse_mcq_text
+        qs = parse_mcq_text(data.decode("utf-8", errors="replace"), eval_id,
+                            "examination", default_topic=title)
+    else:
+        qs = parse_questions(data, filename, default_session=eval_id)
+    # everything in this set belongs to the one evaluation, reviewed as "examination"
+    for q in qs:
+        q.session_id = eval_id
+        q.source_set = "examination"
+    return qs
+
+
+@app.post("/units/evaluation")
+async def create_evaluation(body: dict = Body(...)) -> dict:
+    """Build a single evaluation set spanning MULTIPLE units and review it as one.
+
+    Content and questions are fetched from each selected unit's mastersheet links and
+    combined, so duplicate/scope/coverage checks run ACROSS the whole exam.
+    `set` chooses the question source per unit ('mcq_assignment' or 'in_class_quiz').
+    """
+    from .ingestion.fetch import fetch_questions
+
+    unit_ids = body.get("unit_ids") or []
+    source_set = body.get("set", "mcq_assignment")
+    questions_url = (body.get("questions_url") or "").strip()  # existing eval doc/link
+    title = (body.get("title") or "").strip() or f"Evaluation ({len(unit_ids)} units)"
+    rows = _resolve_eval_units(unit_ids)
+
+    eval_id = _eval_id_for(unit_ids, source_set + ("|url" if questions_url else ""))
+    _save_eval_session(eval_id, title, rows)
+    all_chunks, warnings = _fetch_eval_content(eval_id, rows)
+
+    all_questions: list = []
     if questions_url:
         # review the evaluation the user already has (a Doc/Slides link or an MCQ zip)
         try:
@@ -159,20 +252,39 @@ async def create_evaluation(body: dict = Body(...)) -> dict:
                 q.subtopics = list(r.subtopics or [])[:3]
             all_questions += qs
 
-    if not all_questions:
-        raise HTTPException(422, "No questions could be fetched from the selected units. "
-                            + " | ".join(warnings))
-    store.save_chunks(all_chunks)
-    store.save_questions(all_questions)
-    store.mark_prepared(eval_id, "examination")
-    audit.log("evaluation_created", detail={
-        "eval_id": eval_id, "units": unit_ids, "set": source_set,
-        "questions": len(all_questions)})
+    return await _finalize_evaluation(eval_id, unit_ids, all_chunks, all_questions, warnings)
 
-    run_id = manager.create_run(eval_id, "examination")
-    await manager.start(run_id)
-    return {"run_id": run_id, "status": "running", "units": len(unit_ids),
-            "questions": len(all_questions), "warnings": warnings}
+
+@app.post("/units/evaluation/upload")
+async def create_evaluation_upload(
+    file: UploadFile = File(...),
+    unit_ids: str = Form(...),
+    title: str = Form(""),
+) -> dict:
+    """Review an UPLOADED evaluation (one combined exam file) against the units it covers.
+
+    Use this when the final multi-unit exam isn't a row/link in the mastersheet: upload
+    the exam file (.zip / .md / .txt / .csv / .xlsx / .json) and tick the units it's based
+    on. Their slides + tutorials are combined as the scope basis, exactly like the linked
+    evaluation flow — only the questions come from the file instead of a link.
+    """
+    ids = [u.strip() for u in unit_ids.split(",") if u.strip()]
+    title = (title or "").strip() or f"Evaluation ({len(ids)} units)"
+    rows = _resolve_eval_units(ids)
+
+    eval_id = _eval_id_for(ids, "upload")
+    _save_eval_session(eval_id, title, rows)
+    all_chunks, warnings = _fetch_eval_content(eval_id, rows)
+
+    data = await file.read()
+    try:
+        questions = _parse_eval_upload(data, file.filename or "", eval_id, title)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(422, f"Could not parse the uploaded evaluation file: {e}")
+    if not questions:
+        raise HTTPException(422, "Parsed the file but found no MCQs. Check the format "
+                            "(a .zip LMS export, a Google-Doc .md/.txt, or a CSV/XLSX/JSON set).")
+    return await _finalize_evaluation(eval_id, ids, all_chunks, questions, warnings)
 
 
 @app.post("/units/{unit_id}/prepare_and_run")

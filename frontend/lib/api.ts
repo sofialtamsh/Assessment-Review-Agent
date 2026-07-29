@@ -53,6 +53,20 @@ export async function uploadFile(
   return j(await safeFetch(path, { method: "POST", body: fd }));
 }
 
+export async function ingestMastersheetLink(url: string): Promise<{
+  mode: string;
+  ingested: number;
+  units?: UnitInfo[];
+}> {
+  return j(
+    await safeFetch("/ingest/mastersheet_link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    })
+  );
+}
+
 export async function listSessions(): Promise<{ sessions: SessionInfo[] }> {
   return j(await safeFetch("/sessions", { cache: "no-store" }));
 }
@@ -87,6 +101,18 @@ export async function createEvaluation(
       body: JSON.stringify({ unit_ids: unitIds, set, title, questions_url: questionsUrl }),
     })
   );
+}
+
+export async function createEvaluationUpload(
+  file: File,
+  unitIds: string[],
+  title?: string
+): Promise<{ run_id: string; status: string; units: number; questions: number; warnings: string[] }> {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("unit_ids", unitIds.join(","));
+  if (title) fd.append("title", title);
+  return j(await safeFetch("/units/evaluation/upload", { method: "POST", body: fd }));
 }
 
 export async function createBatch(
