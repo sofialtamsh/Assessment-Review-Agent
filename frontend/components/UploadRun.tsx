@@ -437,7 +437,7 @@ export default function UploadRun() {
               <div className="space-y-3">
                 <p className="text-sm text-black/50">
                   {mode === "eval"
-                    ? "Review ONE evaluation against the units it covers. Its content is combined from the units you select, so duplicate, scope & coverage checks span the whole exam. Give the exam questions in any of three ways: upload the exam file, paste its Google Doc/Slides link, or leave both blank to assemble the set from the units' own documents."
+                    ? "Review ONE evaluation against the units it covers. Its content is combined from the units you select, so duplicate, scope & coverage checks span the whole exam. Give the exam questions in any of three ways: upload the exam file, paste its Google Doc/Slides/Sheet link, or leave both blank to assemble the set from the units' own documents."
                     : "Review MULTIPLE units separately in one go — each gets its own review. You'll get a combined summary plus a link into each unit's own dashboard."}
                 </p>
                 <div className="flex flex-wrap items-end gap-3">
@@ -474,7 +474,7 @@ export default function UploadRun() {
                       )}
                       <input
                         className="w-72 rounded-xl border border-black/10 px-3 py-2 text-sm disabled:opacity-40"
-                        placeholder="…or paste exam Google Doc/Slides link"
+                        placeholder="…or paste exam Google Doc/Slides/Sheet link"
                         value={questionsUrl}
                         disabled={!!evalFile}
                         onChange={(e) => setQuestionsUrl(e.target.value)}

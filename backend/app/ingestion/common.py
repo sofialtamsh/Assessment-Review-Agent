@@ -10,17 +10,30 @@ def _norm_key(k: str) -> str:
     return str(k or "").strip().lower().replace(" ", "_").replace("-", "_")
 
 
-def read_table(data: bytes, filename: str) -> list[dict[str, Any]]:
-    """Return a list of row dicts with normalized (snake_case) header keys.
+def read_all_tables(data: bytes, filename: str) -> list[tuple[str, list[dict[str, Any]]]]:
+    """Return [(sheet_name, [row dicts])] for EVERY sheet, with normalized header keys.
 
-    Supports .csv and .xlsx. Falls back to CSV parsing for unknown extensions.
+    A .csv is a single unnamed sheet; a .xlsx/.xlsm yields one entry per worksheet
+    (so a multi-tab question pool — MCQs, Fill-in-the-blanks, … — is read whole).
     """
     name = (filename or "").lower()
     if name.endswith(".xlsx") or name.endswith(".xlsm"):
-        rows = _read_xlsx(data)
+        sheets = _read_xlsx_all(data)
     else:
-        rows = _read_csv(data)
-    return [{_norm_key(k): ("" if v is None else v) for k, v in row.items()} for row in rows]
+        sheets = [("", _read_csv(data))]
+    return [
+        (sheet, [{_norm_key(k): ("" if v is None else v) for k, v in row.items()} for row in rows])
+        for sheet, rows in sheets
+    ]
+
+
+def read_table(data: bytes, filename: str) -> list[dict[str, Any]]:
+    """Return the FIRST sheet's rows with normalized (snake_case) header keys.
+
+    Supports .csv and .xlsx. Falls back to CSV parsing for unknown extensions.
+    """
+    tables = read_all_tables(data, filename)
+    return tables[0][1] if tables else []
 
 
 def _read_csv(data: bytes) -> list[dict[str, Any]]:
@@ -29,11 +42,7 @@ def _read_csv(data: bytes) -> list[dict[str, Any]]:
     return [dict(r) for r in reader]
 
 
-def _read_xlsx(data: bytes) -> list[dict[str, Any]]:
-    from openpyxl import load_workbook
-
-    wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
-    ws = wb.active
+def _rows_from_sheet(ws) -> list[dict[str, Any]]:
     rows_iter = ws.iter_rows(values_only=True)
     try:
         header = next(rows_iter)
@@ -45,6 +54,18 @@ def _read_xlsx(data: bytes) -> list[dict[str, Any]]:
         if row is None or all(c is None for c in row):
             continue
         out.append({header[i]: row[i] if i < len(row) else None for i in range(len(header))})
+    return out
+
+
+def _read_xlsx_all(data: bytes) -> list[tuple[str, list[dict[str, Any]]]]:
+    from openpyxl import load_workbook
+
+    wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    out: list[tuple[str, list[dict[str, Any]]]] = []
+    for ws in wb.worksheets:
+        rows = _rows_from_sheet(ws)
+        if rows:
+            out.append((ws.title, rows))
     return out
 
 

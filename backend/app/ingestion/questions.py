@@ -8,26 +8,37 @@ Handles the common layouts:
 from __future__ import annotations
 
 import json
+import re
 import string
 from typing import Any
 
 from ..schemas import Option, Question
-from .common import first, read_table, split_list
+from .common import first, read_all_tables, split_list
 
 _LETTERS = list(string.ascii_uppercase)
+
+# Inline-option format (a Google-Sheet / xlsx "question pool"): the whole MCQ lives
+# in one "Questions" cell — stem, then " a) ... b) ... c) ... d) ..." — and the key
+# is given in a "Solution" cell as "Option c) ...". The option markers must sit at a
+# word boundary (start of line / after whitespace) so LaTeX like "$P(A) + P(B)$" in a
+# fill-in-the-blank cell is NOT mistaken for options.
+_INLINE_OPT = re.compile(r"(?<![^\s])([a-hA-H])\)(?=\s)")
+_SOLUTION_KEY = re.compile(r"option\s*([a-hA-H])\s*\)", re.I)
+_HEADER_ECHO = {"question", "questions", "stem", "question_text"}
 
 
 def parse_questions(data: bytes, filename: str, default_session: str = "") -> list[Question]:
     name = (filename or "").lower()
     if name.endswith(".json"):
-        rows = _rows_from_json(data)
+        sheets: list[tuple[str, list[dict[str, Any]]]] = [("", _rows_from_json(data))]
     else:
-        rows = read_table(data, filename)
+        sheets = read_all_tables(data, filename)
     questions: list[Question] = []
-    for row in rows:
-        q = _row_to_question(row, default_session)
-        if q is not None:
-            questions.append(q)
+    for _sheet, rows in sheets:
+        for row in rows:
+            q = _row_to_question(row, default_session)
+            if q is not None:
+                questions.append(q)
     return questions
 
 
@@ -71,6 +82,59 @@ def _extract_options(row: dict[str, Any]) -> list[Option]:
     return opts
 
 
+def _field(row: dict[str, Any], *prefixes: str) -> str:
+    """Like `first`, but matches a header that STARTS WITH a prefix — for pool sheets
+    whose headers carry a parenthetical hint (e.g. 'Difficulty level (Easy, Medium…)'
+    normalizes to 'difficulty_level_(easy,…)')."""
+    for p in prefixes:
+        for k, v in row.items():
+            if k.startswith(p) and str(v).strip() != "":
+                return str(v).strip()
+    return ""
+
+
+def _split_inline_options(text: str) -> tuple[str, list[Option]]:
+    """Split a "stem … a) opt b) opt c) opt" cell into (stem, options).
+
+    Only the longest consecutive run starting at 'a' counts as the option list, so a
+    stray 'c)' inside the stem doesn't start it. Returns ('', []) when there's no run.
+    """
+    seq = []
+    expected = 0
+    for m in _INLINE_OPT.finditer(text):
+        if ord(m.group(1).lower()) - ord("a") == expected:
+            seq.append(m)
+            expected += 1
+    if len(seq) < 2:
+        return text.strip(), []
+    stem = text[: seq[0].start()].strip()
+    options: list[Option] = []
+    for i, m in enumerate(seq):
+        end = seq[i + 1].start() if i + 1 < len(seq) else len(text)
+        options.append(Option(key=m.group(1).upper(), text=text[m.end():end].strip(" .;,\n")))
+    return stem, options
+
+
+def _solution_key(solution: str, options: list[Option]) -> str:
+    """Map a 'Solution' cell to an option key: 'Option c) …' -> 'C', a bare leading
+    letter, or a match of the solution text against an option's text."""
+    if not solution:
+        return ""
+    keys = {o.key for o in options}
+    m = _SOLUTION_KEY.search(solution)
+    if m and m.group(1).upper() in keys:
+        return m.group(1).upper()
+    m2 = re.match(r"\s*([a-hA-H])[).\s]", solution)
+    if m2 and m2.group(1).upper() in keys:
+        return m2.group(1).upper()
+    low = solution.strip().lower()
+    for o in options:
+        t = o.text.strip().lower()
+        if t and (t == low or t in low):
+            return o.key
+    return ""
+
+
 def _infer_type(row: dict[str, Any], options: list[Option], correct: list[str]) -> str:
     raw = str(first(row, "type", "qtype", "question_type")).strip().lower()
     if raw in {"binary", "true_false", "truefalse", "tf", "boolean"}:
@@ -89,8 +153,8 @@ def _infer_type(row: dict[str, Any], options: list[Option], correct: list[str]) 
 
 
 def _row_to_question(row: dict[str, Any], default_session: str) -> Question | None:
-    stem = str(first(row, "question", "stem", "question_text", "text")).strip()
-    if not stem:
+    stem = str(first(row, "question", "questions", "stem", "question_text", "text")).strip()
+    if not stem or stem.lower() in _HEADER_ECHO:  # skip blanks and repeated header rows
         return None
     session_id = str(first(row, "session_id", "session", "unit", default=default_session)).strip()
     source_set = _norm_source_set(str(first(row, "source_set", "set", "assessment_type")))
@@ -102,6 +166,21 @@ def _row_to_question(row: dict[str, Any], default_session: str) -> Question | No
     correct = [_norm_correct_token(c, options) for c in correct]
     correct = [c for c in correct if c]
 
+    # Inline-option "pool" format: no columnar options, but the stem cell holds the
+    # options and a "Solution" cell holds the key (a Google-Sheet / xlsx exam pool).
+    pool_like = "questions" in row or "solution" in row
+    if not options:
+        inline_stem, inline_options = _split_inline_options(stem)
+        if inline_options:
+            stem, options = inline_stem, inline_options
+            if not correct:
+                key = _solution_key(str(first(row, "solution", "answer_text")), options)
+                correct = [key] if key else []
+    # A row with no options at all isn't an MCQ (e.g. a short-answer pool tab) — skip
+    # it, but only for pool-shaped sheets, so plain columnar sets are unaffected.
+    if not options and pool_like:
+        return None
+
     qtype = _infer_type(row, options, correct)
     if qtype == "binary" and not options:
         options = [Option(key="True", text="True"), Option(key="False", text="False")]
@@ -110,7 +189,8 @@ def _row_to_question(row: dict[str, Any], default_session: str) -> Question | No
     if not qid:
         qid = Question.make_id(session_id, stem, source_set)
 
-    difficulty = str(first(row, "difficulty", "level")).strip().lower() or None
+    difficulty = (str(first(row, "difficulty", "level")).strip()
+                  or _field(row, "difficulty")).lower() or None
     if difficulty not in {"easy", "medium", "hard", None}:
         difficulty = None
 
@@ -118,8 +198,9 @@ def _row_to_question(row: dict[str, Any], default_session: str) -> Question | No
         question_id=qid,
         session_id=session_id,
         course=str(first(row, "course")).strip(),
-        module=str(first(row, "module")).strip(),
-        unit=str(first(row, "unit")).strip(),
+        module=(str(first(row, "module")).strip()
+                or _field(row, "module", "name_of_the_module")),
+        unit=str(first(row, "unit")).strip() or _field(row, "session_name"),
         source_set=source_set,
         qtype=qtype,
         stem=stem,
@@ -127,7 +208,7 @@ def _row_to_question(row: dict[str, Any], default_session: str) -> Question | No
         correct_keys=correct,
         explanation=str(first(row, "explanation", "rationale", "solution")).strip() or None,
         difficulty=difficulty,
-        topic=str(first(row, "topic")).strip() or None,
+        topic=str(first(row, "topic")).strip() or _field(row, "topic") or None,
         subtopics=split_list(first(row, "subtopics", "subtopic", "sub_topics")),
         raw=row,
     )

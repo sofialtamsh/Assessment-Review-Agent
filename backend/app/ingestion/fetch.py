@@ -181,18 +181,39 @@ def looks_like_zip_source(url: str) -> bool:
     return bool(_GDRIVE_FILE.search(url) or _GDRIVE_UC.search(url) or url.endswith(".zip"))
 
 
+def looks_like_spreadsheet_source(url: str) -> bool:
+    """True if the link is a Google Sheet or a direct .xlsx/.csv (a question-pool sheet)."""
+    u = (url or "").strip().lower()
+    return bool(_GSHEET.search(u)) or u.split("?")[0].endswith((".xlsx", ".xlsm", ".csv"))
+
+
 def fetch_questions(session_id: str, url: str, source_set: str,
                     default_topic: str = "", timeout: float = 45.0) -> list["Question"]:
     """Fetch a unit's MCQs, choosing the parser from the link type:
-    a Drive/.zip link -> the LMS zip parser; anything else -> the Google-Doc text parser.
+      * a Drive / .zip link            -> the LMS zip parser
+      * a Google Sheet / .xlsx / .csv  -> the tabular question-set parser (each sheet
+                                          tab is read; inline-option "pool" cells are
+                                          split into stem + options + key)
+      * anything else (a Google Doc)   -> the Google-Doc text parser
     """
     from .mcq_text import parse_mcq_text
     from .mcq_zip import parse_mcq_zip
+    from .questions import parse_questions
 
     url = (url or "").strip()
     if looks_like_zip_source(url):
         data = _download_drive_file(url, timeout)
         return parse_mcq_zip(data, session_id, source_set, default_topic=default_topic)
+    if looks_like_spreadsheet_source(url):
+        data = fetch_spreadsheet_bytes(url, timeout, what="MCQ question")
+        fname = "questions.xlsx" if _GSHEET.search(url) else (
+            url.split("?")[0].rstrip("/").split("/")[-1] or "questions.xlsx")
+        questions = parse_questions(data, fname, default_session=session_id)
+        for q in questions:
+            q.session_id = session_id
+            q.source_set = source_set  # type: ignore[assignment]
+            q.topic = q.topic or (default_topic or None)
+        return questions
     text = fetch_doc_text(url, timeout)
     return parse_mcq_text(text, session_id, source_set, default_topic=default_topic)
 
