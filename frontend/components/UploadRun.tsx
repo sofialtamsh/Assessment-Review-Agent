@@ -227,9 +227,10 @@ export default function UploadRun() {
     );
     try {
       // uploaded exam file wins; else a pasted link; else assemble from the units' docs
+      // evaluations always assemble from the MCQ assignment (no in-class variant)
       const r = evalFile
         ? await createEvaluationUpload(evalFile, evalUnits, evalTitle)
-        : await createEvaluation(evalUnits, set, evalTitle, questionsUrl);
+        : await createEvaluation(evalUnits, "mcq_assignment", evalTitle, questionsUrl);
       if (r.warnings?.length) setMsg(r.warnings.join(" · "));
       attachStream(r.run_id);
     } catch (e: any) {
@@ -480,20 +481,28 @@ export default function UploadRun() {
                       />
                     </>
                   )}
-                  <div className={mode === "eval" && (evalFile || questionsUrl) ? "opacity-40" : ""}>
-                    <div className="label mb-1">
-                      {mode === "eval" ? "…or assemble from" : "Question source"}
+                  {mode === "eval" ? (
+                    // an evaluation is always assembled from the MCQ assignment (no
+                    // in-class variant), so this is fixed — not a choice.
+                    <div className={evalFile || questionsUrl ? "opacity-40" : ""}>
+                      <div className="label mb-1">…or assemble from</div>
+                      <div className="rounded-xl border border-black/10 bg-black/[0.02] px-3 py-2 text-sm text-black/60">
+                        each unit&apos;s MCQ assignment
+                      </div>
                     </div>
-                    <select
-                      className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
-                      value={set}
-                      disabled={mode === "eval" && (!!evalFile || !!questionsUrl)}
-                      onChange={(e) => setSet(e.target.value)}
-                    >
-                      <option value="mcq_assignment">each unit&apos;s MCQ assignment</option>
-                      <option value="in_class_quiz">each unit&apos;s in-class quiz</option>
-                    </select>
-                  </div>
+                  ) : (
+                    <div>
+                      <div className="label mb-1">Question source</div>
+                      <select
+                        className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
+                        value={set}
+                        onChange={(e) => setSet(e.target.value)}
+                      >
+                        <option value="mcq_assignment">each unit&apos;s MCQ assignment</option>
+                        <option value="in_class_quiz">each unit&apos;s in-class quiz</option>
+                      </select>
+                    </div>
+                  )}
                   <button
                     className="btn-primary ml-auto"
                     onClick={mode === "eval" ? reviewEvaluation : reviewBatch}
@@ -512,8 +521,10 @@ export default function UploadRun() {
                   {units.map((u) => {
                     const checked = evalUnits.includes(u.unit_id);
                     const avail =
-                      mode === "eval" && (evalFile || questionsUrl)
-                        ? u.has_content
+                      mode === "eval"
+                        ? evalFile || questionsUrl
+                          ? u.has_content // exam supplied; unit only needs content
+                          : u.has_mcq_assignment // assembled from the MCQ assignment
                         : set === "mcq_assignment"
                         ? u.has_mcq_assignment
                         : u.has_in_class_quiz;
