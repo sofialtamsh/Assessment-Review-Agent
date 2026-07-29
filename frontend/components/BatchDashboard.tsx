@@ -75,7 +75,16 @@ export default function BatchDashboard({ batchId }: { batchId: string }) {
               const vc = it.verdict_counts || {};
               return (
                 <tr key={it.unit_id} className="border-t border-black/[0.04]">
-                  <td className="px-4 py-2.5 font-medium">{it.unit}</td>
+                  <td className="px-4 py-2.5 font-medium">
+                    {it.unit}
+                    {it.warnings && it.warnings.length > 0 && (
+                      <div className="mt-0.5 text-xs font-normal text-amber-700">
+                        {it.warnings.map((w, i) => (
+                          <div key={i} className="break-all">⚠ {w}</div>
+                        ))}
+                      </div>
+                    )}
+                  </td>
                   {it.error ? (
                     <td className="px-4 py-2.5 text-rose-600" colSpan={5}>
                       {it.error}

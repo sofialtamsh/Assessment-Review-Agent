@@ -98,6 +98,23 @@ def list_units() -> dict:
 
 
 # --------------------------------------------------------------------------- #
+# Fetch error reporting — name WHICH source failed (+ its link) so the reviewer
+# knows exactly which mastersheet link to fix (e.g. share it publicly).
+# --------------------------------------------------------------------------- #
+_SET_LABEL = {
+    "mcq_assignment": "MCQ assignment",
+    "in_class_quiz": "in-class quiz",
+    "examination": "evaluation",
+}
+
+
+def _source_error(source: str, err: object, url: str = "") -> str:
+    """Consistent, actionable message: which source failed, why, and its link."""
+    loc = f" [{url}]" if url else ""
+    return f"{source} — {err}{loc}"
+
+
+# --------------------------------------------------------------------------- #
 # Evaluation (combined) — shared helpers
 # --------------------------------------------------------------------------- #
 def _resolve_eval_units(unit_ids: list[str]) -> list:
@@ -149,7 +166,7 @@ def _fetch_eval_content(eval_id: str, rows: list) -> tuple[list, list[str]]:
                     c.source_ref = f"{r.unit[:22]} · {c.source_ref}"
                 all_chunks += chunks
             except Exception as e:  # noqa: BLE001
-                warnings.append(f"{r.unit}: slides skipped ({e})")
+                warnings.append(f"{r.unit}: " + _source_error("slides (PPT)", e, r.content_path))
         if r.tutorial_url and str(r.tutorial_url).lower().startswith("http"):
             try:
                 tchunks = fetch_tutorial_content(eval_id, r.tutorial_url)
@@ -157,7 +174,7 @@ def _fetch_eval_content(eval_id: str, rows: list) -> tuple[list, list[str]]:
                     c.source_ref = f"{r.unit[:22]} · {c.source_ref}"
                 all_chunks += tchunks
             except Exception as e:  # noqa: BLE001
-                warnings.append(f"{r.unit}: tutorial skipped ({e})")
+                warnings.append(f"{r.unit}: " + _source_error("tutorial", e, r.tutorial_url))
     return all_chunks, warnings
 
 
@@ -229,23 +246,22 @@ async def create_evaluation(body: dict = Body(...)) -> dict:
             all_questions = fetch_questions(eval_id, questions_url, "examination",
                                             default_topic=title)
         except PermissionError as e:
-            raise HTTPException(403, str(e))
+            raise HTTPException(403, _source_error("evaluation document", e, questions_url))
         except Exception as e:  # noqa: BLE001
-            raise HTTPException(502, f"Could not fetch the evaluation document: {e}")
+            raise HTTPException(
+                502, _source_error("Could not fetch the evaluation document", e, questions_url))
     else:
         # assemble one set from each selected unit's chosen document
+        label = _SET_LABEL.get(source_set, source_set)
         for r in rows:
             doc_url = r.mcq_doc_url if source_set == "mcq_assignment" else r.quiz_doc_url
             if not doc_url:
-                warnings.append(f"{r.unit}: no {source_set} document")
+                warnings.append(f"{r.unit}: no {label} document")
                 continue
             try:
                 qs = fetch_questions(eval_id, doc_url, "examination", default_topic=r.unit)
-            except PermissionError as e:
-                warnings.append(f"{r.unit}: {e}")
-                continue
             except Exception as e:  # noqa: BLE001
-                warnings.append(f"{r.unit}: doc fetch failed ({e})")
+                warnings.append(f"{r.unit}: " + _source_error(label, e, doc_url))
                 continue
             for q in qs:
                 q.question_id = f"{r.session_id[:6]}_{q.question_id}"
@@ -280,7 +296,8 @@ async def create_evaluation_upload(
     try:
         questions = _parse_eval_upload(data, file.filename or "", eval_id, title)
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(422, f"Could not parse the uploaded evaluation file: {e}")
+        raise HTTPException(
+            422, f"Could not parse the uploaded evaluation file '{file.filename}': {e}")
     if not questions:
         raise HTTPException(422, "Parsed the file but found no MCQs. Check the format "
                             "(a .zip LMS export, a Google-Doc .md/.txt, or a CSV/XLSX/JSON set).")
@@ -314,9 +331,10 @@ def _fetch_unit(unit_id: str, source_set: str) -> tuple[int, list[str]]:
     row = store.get_unit_row(unit_id)
     if not row:
         raise HTTPException(404, "unit not found")
+    label = _SET_LABEL.get(source_set, source_set)
     doc_url = row.mcq_doc_url if source_set == "mcq_assignment" else row.quiz_doc_url
     if not doc_url:
-        raise HTTPException(400, f"This unit has no {source_set} document in the mastersheet.")
+        raise HTTPException(400, f"This unit has no {label} document in the mastersheet.")
 
     warnings: list[str] = []
     # --- reference content: slides + tutorial cheat-sheet, combined under this unit ---
@@ -326,14 +344,12 @@ def _fetch_unit(unit_id: str, source_set: str) -> tuple[int, list[str]]:
             try:
                 chunks += fetch_content(unit_id, row.content_path)
             except Exception as e:  # noqa: BLE001
-                warnings.append(f"slides content fetch failed: {e}")
+                warnings.append(_source_error("slides (PPT)", e, row.content_path))
         if row.tutorial_url and str(row.tutorial_url).lower().startswith("http"):
             try:
                 chunks += fetch_tutorial_content(unit_id, row.tutorial_url)
-            except PermissionError as e:
-                warnings.append(f"tutorial skipped: {e}")
             except Exception as e:  # noqa: BLE001
-                warnings.append(f"tutorial fetch failed: {e}")
+                warnings.append(_source_error("tutorial", e, row.tutorial_url))
         if chunks:
             store.save_chunks(chunks)
 
@@ -341,11 +357,11 @@ def _fetch_unit(unit_id: str, source_set: str) -> tuple[int, list[str]]:
     try:
         questions = fetch_questions(unit_id, doc_url, source_set, default_topic=row.unit)
     except PermissionError as e:
-        raise HTTPException(403, str(e))
+        raise HTTPException(403, _source_error(label, e, doc_url))
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(502, f"Could not fetch the {source_set} document: {e}")
+        raise HTTPException(502, _source_error(f"Could not fetch the {label}", e, doc_url))
     if not questions:
-        raise HTTPException(422, "Fetched the document but found no parseable MCQs.")
+        raise HTTPException(422, f"Fetched the {label} but found no parseable MCQs. [{doc_url}]")
     store.save_questions(questions)
 
     store.mark_prepared(unit_id, source_set)

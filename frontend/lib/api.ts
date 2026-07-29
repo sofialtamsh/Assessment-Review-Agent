@@ -138,6 +138,7 @@ export async function getBatch(batchId: string): Promise<{
     status?: string;
     questions?: number;
     error?: string;
+    warnings?: string[];
     verdict_counts?: Record<string, number>;
     total_questions?: number;
   }[];
