@@ -129,7 +129,7 @@ export default function Dashboard({ runId }: { runId: string }) {
             New run
           </Link>
           <a className="btn-ghost" href={reportExportUrl(runId)}>
-            Report (MD)
+            Review report
           </a>
           <a className="btn-primary" href={exportUrl(runId, "csv")}>
             Export approved CSV
