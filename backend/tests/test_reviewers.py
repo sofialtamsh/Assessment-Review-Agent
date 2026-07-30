@@ -66,6 +66,23 @@ def test_activity_lists_runs_with_reviewer():
     assert mine and mine[0]["reviewer"] == "Meena"
 
 
+def test_units_scoped_per_owner_but_activity_shared():
+    from app.jobs import manager
+    from app.schemas import UnitSpec
+
+    store.save_units([UnitSpec(unit_id="iso_u1", unit="U1")], owner="Alice")
+    store.save_units([UnitSpec(unit_id="iso_u2", unit="U2")], owner="Bob")
+    alice = {u["unit_id"] for u in store.list_units("Alice")}
+    bob = {u["unit_id"] for u in store.list_units("Bob")}
+    assert "iso_u1" in alice and "iso_u2" not in alice   # Alice sees only hers
+    assert "iso_u2" in bob and "iso_u1" not in bob        # Bob sees only his
+    # reviews / activity stay GLOBAL — everyone's reviewed data is visible
+    manager.create_run("iso_u1", "mcq_assignment", reviewer="Alice")
+    manager.create_run("iso_u2", "mcq_assignment", reviewer="Bob")
+    reviewers = {a["reviewer"] for a in store.list_activity(50)}
+    assert {"Alice", "Bob"} <= reviewers
+
+
 # --- export format --------------------------------------------------------- #
 def test_reviewed_export_format():
     qs = [Question(question_id="q1", session_id="u1", stem="Pick the operator",

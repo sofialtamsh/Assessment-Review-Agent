@@ -21,10 +21,11 @@ from .schemas import Chunk, Finding, Judgment, Option, Question, Session, UnitSp
 
 
 # ---- Session -------------------------------------------------------------- #
-def save_sessions(sessions: list[Session]) -> None:
+def save_sessions(sessions: list[Session], owner: str = "") -> None:
     with get_session() as db:
         for s in sessions:
             row = db.get(SessionRow, s.session_id) or SessionRow(session_id=s.session_id)
+            row.owner = owner or row.owner
             row.course, row.module, row.unit = s.course, s.module, s.unit
             row.topic, row.subtopics = s.topic, s.subtopics
             row.content_path = s.content_path
@@ -42,19 +43,31 @@ def get_session_schema(session_id: str) -> Session | None:
                        content_path=r.content_path)
 
 
-def list_sessions() -> list[Session]:
+def list_sessions(owner: str | None = None) -> list[Session]:
     with get_session() as db:
         rows = db.exec(select(SessionRow)).all()
-        return [Session(session_id=r.session_id, course=r.course, module=r.module,
-                        unit=r.unit, topic=r.topic, subtopics=list(r.subtopics or []),
-                        content_path=r.content_path) for r in rows]
+    rows = _owned(rows, owner)
+    return [Session(session_id=r.session_id, course=r.course, module=r.module,
+                    unit=r.unit, topic=r.topic, subtopics=list(r.subtopics or []),
+                    content_path=r.content_path) for r in rows]
+
+
+def _owned(rows: list, owner: str | None):
+    """Filter session rows to a reviewer's own uploads. owner=None => no scoping (all).
+
+    Legacy rows with no owner stay visible to everyone so pre-scoping data isn't lost.
+    """
+    if not owner:
+        return rows
+    return [r for r in rows if r.owner == owner or not r.owner]
 
 
 # ---- Units (mastersheet-sourced) ----------------------------------------- #
-def save_units(units: list[UnitSpec]) -> None:
+def save_units(units: list[UnitSpec], owner: str = "") -> None:
     with get_session() as db:
         for u in units:
             row = db.get(SessionRow, u.unit_id) or SessionRow(session_id=u.unit_id)
+            row.owner = owner or row.owner
             row.course, row.module, row.unit = u.course, u.module, u.unit
             row.topic = u.unit
             row.subtopics = u.subtopics
@@ -66,11 +79,11 @@ def save_units(units: list[UnitSpec]) -> None:
         db.commit()
 
 
-def list_units() -> list[dict]:
+def list_units(owner: str | None = None) -> list[dict]:
     with get_session() as db:
         rows = db.exec(select(SessionRow)).all()
         out = []
-        for r in rows:
+        for r in _owned(rows, owner):
             out.append({
                 "unit_id": r.session_id, "course": r.course, "module": r.module,
                 "unit": r.unit, "subtopics": list(r.subtopics or []),

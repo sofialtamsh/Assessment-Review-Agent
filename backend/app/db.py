@@ -25,6 +25,7 @@ engine = create_engine(
 # an existing table, so we ALTER-add any that are missing (self-healing migration).
 _ADDED_COLUMNS: dict[str, dict[str, str]] = {
     "sessions": {
+        "owner": "TEXT DEFAULT ''",
         "content_parsed": "BOOLEAN DEFAULT 0",
         "tutorial_url": "TEXT",
         "mcq_doc_url": "TEXT",

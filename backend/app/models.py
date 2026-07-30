@@ -21,6 +21,7 @@ def _now() -> datetime:
 class SessionRow(SQLModel, table=True):
     __tablename__ = "sessions"
     session_id: str = Field(primary_key=True)
+    owner: str = Field(default="", index=True)   # reviewer who uploaded (per-user scoping)
     course: str = ""
     module: str = ""
     unit: str = ""

@@ -113,24 +113,25 @@ async def infer_rubric_endpoint(
 # Uploads / ingestion
 # --------------------------------------------------------------------------- #
 @app.post("/upload/mastersheet")
-async def upload_mastersheet(file: UploadFile = File(...)) -> dict:
+async def upload_mastersheet(file: UploadFile = File(...), request: Request = None) -> dict:
+    owner = auth.reviewer_from_request(request)
     data = await file.read()
     # XLSX preserves hyperlinks -> aggregate into units with content/question links
     if (file.filename or "").lower().endswith((".xlsx", ".xlsm")):
         from .ingestion.mastersheet_xlsx import parse_mastersheet_xlsx
         units = parse_mastersheet_xlsx(data)
         if units:
-            store.save_units(units)
+            store.save_units(units, owner=owner)
             return {"mode": "units", "ingested": len(units),
                     "units": [u.model_dump() for u in units]}
     sessions = parse_mastersheet(data, file.filename)
-    store.save_sessions(sessions)
+    store.save_sessions(sessions, owner=owner)
     return {"mode": "sessions", "ingested": len(sessions),
             "sessions": [s.model_dump() for s in sessions]}
 
 
 @app.post("/ingest/mastersheet_link")
-async def ingest_mastersheet_link(body: dict = Body(...)) -> dict:
+async def ingest_mastersheet_link(body: dict = Body(...), request: Request = None) -> dict:
     """Ingest the mastersheet straight from a Google Sheet (or .xlsx) link — no download.
 
     The sheet is exported as .xlsx so its cell hyperlinks (slide / doc / zip links) are
@@ -157,14 +158,14 @@ async def ingest_mastersheet_link(body: dict = Body(...)) -> dict:
             "Fetched the sheet but found no units with links. The Google Sheet export may "
             "have dropped the cell hyperlinks (a known quirk for HYPERLINK()-formula cells). "
             "Download the sheet as .xlsx (File > Download > Microsoft Excel) and upload it.")
-    store.save_units(units)
+    store.save_units(units, owner=auth.reviewer_from_request(request))
     return {"mode": "units", "ingested": len(units),
             "units": [u.model_dump() for u in units]}
 
 
 @app.get("/units")
-def list_units() -> dict:
-    return {"units": store.list_units()}
+def list_units(request: Request) -> dict:
+    return {"units": store.list_units(auth.reviewer_from_request(request))}
 
 
 # --------------------------------------------------------------------------- #
@@ -205,7 +206,7 @@ def _eval_id_for(unit_ids: list[str], salt: str) -> str:
         ("|".join(sorted(unit_ids)) + salt).encode()).hexdigest()[:8]
 
 
-def _save_eval_session(eval_id: str, title: str, rows: list) -> None:
+def _save_eval_session(eval_id: str, title: str, rows: list, owner: str = "") -> None:
     """Persist the synthetic session carrying the union of the units' taught subtopics."""
     from .models import SessionRow
 
@@ -214,6 +215,7 @@ def _save_eval_session(eval_id: str, title: str, rows: list) -> None:
         subtopics += list(r.subtopics or [])
     with get_session() as db:
         srow = db.get(SessionRow, eval_id) or SessionRow(session_id=eval_id)
+        srow.owner = owner or srow.owner
         srow.unit = srow.topic = title
         srow.course = rows[0].course
         srow.module = rows[0].module
@@ -405,7 +407,7 @@ async def create_evaluation(body: dict = Body(...), request: Request = None) -> 
     rows = _resolve_eval_units(unit_ids)
 
     eval_id = _eval_id_for(unit_ids, source_set + ("|url" if questions_url else ""))
-    _save_eval_session(eval_id, title, rows)
+    _save_eval_session(eval_id, title, rows, owner=auth.reviewer_from_request(request))
     all_chunks, warnings = _fetch_eval_content(eval_id, rows)
     _attach_rubric(eval_id, warnings,
                    text=body.get("rubric_text", ""), url=body.get("rubric_url", ""),
@@ -449,7 +451,7 @@ async def create_evaluation_upload(
     rows = _resolve_eval_units(ids)
 
     eval_id = _eval_id_for(ids, "upload")
-    _save_eval_session(eval_id, title, rows)
+    _save_eval_session(eval_id, title, rows, owner=auth.reviewer_from_request(request))
     all_chunks, warnings = _fetch_eval_content(eval_id, rows)
     rubric_bytes = await rubric_file.read() if rubric_file is not None else None
     try:
@@ -682,8 +684,8 @@ def fetch_session_content(session_id: str, body: dict = Body(default={})) -> dic
 
 
 @app.get("/sessions")
-def list_sessions() -> dict:
-    sessions = store.list_sessions()
+def list_sessions(request: Request) -> dict:
+    sessions = store.list_sessions(auth.reviewer_from_request(request))
     out = []
     for s in sessions:
         qs = store.load_questions_by_session(s.session_id)
