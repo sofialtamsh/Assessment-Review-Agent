@@ -40,16 +40,43 @@ def export_cleaned_json(questions: list[Question]) -> bytes:
                       indent=2, ensure_ascii=False).encode("utf-8")
 
 
+# The reviewed-MCQ delivery format (one "MCQs" sheet), matching the curriculum
+# team's question-bank layout. `Key` is written as "Option A/B/C/D".
+_REVIEW_FIELDS = ["S. No", "question content", "Option A", "Option B", "Option C",
+                  "Option D", "Explanation", "Key", "SUB TOPIC", "Difficulty",
+                  "pool", "Image (if any)", "Remarks"]
+
+
+def _key_as_options(q: Question) -> str:
+    """Render the correct key(s) as 'Option A/B/…' by option position."""
+    labels: list[str] = []
+    for ck in q.correct_keys:
+        pos = next((i for i, o in enumerate(q.options) if o.key == ck), None)
+        if pos is None:
+            up = str(ck).strip().upper()
+            if len(up) == 1 and "A" <= up <= "Z":
+                pos = ord(up) - 65
+        if pos is not None and 0 <= pos < 26:
+            labels.append(f"Option {chr(65 + pos)}")
+    return ", ".join(labels)
+
+
+def _review_row(q: Question, sno: int) -> list:
+    opts = [q.options[i].text if i < len(q.options) else "" for i in range(4)]
+    subtopic = "; ".join(q.subtopics) or (q.topic or "")
+    return [sno, q.stem, *opts, q.explanation or "", _key_as_options(q),
+            subtopic, q.difficulty or "", "", "", ""]
+
+
 def export_cleaned_xlsx(questions: list[Question]) -> bytes:
     from openpyxl import Workbook
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "approved"
-    ws.append(_FIELDS)
-    for q in questions:
-        r = _row(q)
-        ws.append([r[f] for f in _FIELDS])
+    ws.title = "MCQs"
+    ws.append(_REVIEW_FIELDS)
+    for i, q in enumerate(questions, start=1):
+        ws.append(_review_row(q, i))
     out = io.BytesIO()
     wb.save(out)
     return out.getvalue()

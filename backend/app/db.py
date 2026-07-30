@@ -32,6 +32,9 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
     "findings": {
         "related_ids": "JSON",
     },
+    "runs": {
+        "reviewer": "TEXT DEFAULT ''",
+    },
 }
 
 

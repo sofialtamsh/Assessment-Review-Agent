@@ -80,6 +80,7 @@ class RunRow(SQLModel, table=True):
     run_id: str = Field(primary_key=True)
     session_id: str = Field(index=True)
     source_set: str = "mcq_assignment"
+    reviewer: str = ""                # who started this review (from login)
     status: str = "queued"            # queued | running | completed | failed | budget_stopped
     current_phase: str = ""
     completed_phases: list = Field(default_factory=list, sa_column=Column(JSON))
@@ -134,6 +135,28 @@ class AgentInstruction(SQLModel, table=True):
     session_id: Optional[str] = Field(default=None, index=True)  # None = global
     active: bool = True
     created_at: datetime = Field(default_factory=_now)
+
+
+class ReviewSummary(SQLModel, table=True):
+    """A compact record of a COMPLETED review, so a later reviewer is warned that this
+    unit/assessment was already reviewed and can open the prior dashboard summary.
+
+    Matched two ways: `unit_key` (session/eval + source_set) and `content_hash`
+    (fingerprint of the actual questions, catching identical uploaded/linked sets)."""
+    __tablename__ = "review_summaries"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    unit_key: str = Field(index=True)          # f"{session_id}:{source_set}"
+    content_hash: str = Field(default="", index=True)
+    run_id: str = ""
+    session_id: str = ""
+    source_set: str = ""
+    title: str = ""
+    reviewer: str = ""
+    total_questions: int = 0
+    pass_rate: float = 0.0
+    verdict_counts: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    rubric: dict = Field(default_factory=dict, sa_column=Column(JSON))  # {applied,fails,warns}
+    created_at: datetime = Field(default_factory=_now, index=True)
 
 
 class AuditLog(SQLModel, table=True):

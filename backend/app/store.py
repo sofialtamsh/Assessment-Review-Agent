@@ -3,6 +3,8 @@ the API + job runner need. Keeps SQL out of the route/graph code.
 """
 from __future__ import annotations
 
+import hashlib
+
 from sqlmodel import select
 
 from .db import get_session
@@ -11,6 +13,8 @@ from .models import (
     FindingRow,
     JudgmentRow,
     QuestionRow,
+    ReviewSummary,
+    RunRow,
     SessionRow,
 )
 from .schemas import Chunk, Finding, Judgment, Option, Question, Session, UnitSpec
@@ -125,6 +129,94 @@ def get_rubric(session_id: str) -> dict | None:
         if not text and not criteria:
             return None
         return {"text": text, "criteria": criteria, "source": r.rubric_source or ""}
+
+
+# ---- Review history / guardrail ------------------------------------------ #
+def unit_key(session_id: str, source_set: str) -> str:
+    return f"{session_id}:{source_set}"
+
+
+def question_set_hash(questions: list[Question]) -> str:
+    """Order-independent fingerprint of a question set (stems + option texts)."""
+    parts = []
+    for q in questions:
+        opts = "|".join(sorted((o.text or "").strip().lower() for o in q.options))
+        parts.append((q.stem or "").strip().lower() + "::" + opts)
+    return hashlib.sha1("\n".join(sorted(parts)).encode()).hexdigest()
+
+
+def save_review_summary(*, run_id: str, session_id: str, source_set: str, title: str,
+                        reviewer: str, report: dict | None,
+                        questions: list[Question]) -> None:
+    report = report or {}
+    rubric = {
+        "applied": bool(report.get("rubric_applied")),
+        "fails": sum(1 for c in report.get("rubric_compliance", []) if c.get("status") == "fail"),
+        "warns": sum(1 for c in report.get("rubric_compliance", []) if c.get("status") == "warn"),
+    }
+    with get_session() as db:
+        db.add(ReviewSummary(
+            unit_key=unit_key(session_id, source_set),
+            content_hash=question_set_hash(questions),
+            run_id=run_id, session_id=session_id, source_set=source_set,
+            title=title or session_id, reviewer=reviewer or "unknown",
+            total_questions=report.get("total_questions", len(questions)),
+            pass_rate=report.get("pass_rate", 0.0),
+            verdict_counts=report.get("verdict_counts", {}),
+            rubric=rubric,
+        ))
+        db.commit()
+
+
+def _summary_dict(r: ReviewSummary) -> dict:
+    return {
+        "run_id": r.run_id, "session_id": r.session_id, "source_set": r.source_set,
+        "title": r.title, "reviewer": r.reviewer, "total_questions": r.total_questions,
+        "pass_rate": r.pass_rate, "verdict_counts": dict(r.verdict_counts or {}),
+        "rubric": dict(r.rubric or {}), "created_at": r.created_at.isoformat(),
+    }
+
+
+def find_prior_reviews(session_id: str, source_set: str,
+                       content_hash: str = "", exclude_run_id: str = "") -> list[dict]:
+    """Prior COMPLETED reviews that match this unit+set OR the identical question set."""
+    key = unit_key(session_id, source_set)
+    with get_session() as db:
+        rows = db.exec(select(ReviewSummary)).all()
+    hits = [
+        r for r in rows
+        if r.run_id != exclude_run_id
+        and (r.unit_key == key or (content_hash and r.content_hash == content_hash))
+    ]
+    hits.sort(key=lambda r: r.created_at, reverse=True)
+    return [_summary_dict(r) for r in hits]
+
+
+def list_activity(limit: int = 25) -> list[dict]:
+    """Recent reviews (in-progress + completed) for the activity feed."""
+    with get_session() as db:
+        rows = db.exec(select(RunRow)).all()
+    rows.sort(key=lambda r: r.updated_at, reverse=True)
+    out = []
+    for r in rows[:limit]:
+        report = r.report or {}
+        sess = db_session_title(r.session_id)
+        out.append({
+            "run_id": r.run_id, "session_id": r.session_id, "source_set": r.source_set,
+            "reviewer": r.reviewer or "unknown", "status": r.status,
+            "title": sess, "total_questions": report.get("total_questions", 0),
+            "verdict_counts": report.get("verdict_counts", {}),
+            "created_at": r.created_at.isoformat(), "updated_at": r.updated_at.isoformat(),
+        })
+    return out
+
+
+def db_session_title(session_id: str) -> str:
+    with get_session() as db:
+        r = db.get(SessionRow, session_id)
+        if not r:
+            return session_id
+        return r.unit or r.topic or session_id
 
 
 def mark_prepared(unit_id: str, source_set: str) -> None:

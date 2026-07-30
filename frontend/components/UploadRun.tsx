@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   API_BASE,
+  ApiError,
   checkHealth,
   createBatch,
   createEvaluation,
@@ -15,6 +16,7 @@ import {
   streamUrl,
   uploadFile,
 } from "@/lib/api";
+import type { PriorReview } from "@/lib/api";
 import type { UnitInfo } from "@/lib/types";
 import { PHASE_LABELS, PHASE_ORDER } from "./ui";
 
@@ -96,6 +98,9 @@ export default function UploadRun() {
   const [showRubric, setShowRubric] = useState(false);
 
   // manual (advanced) flow
+  // already-reviewed guardrail banner (prior summary + "review again anyway")
+  const [guard, setGuard] = useState<{ prior: PriorReview[]; retry: () => void } | null>(null);
+
   const [showManual, setShowManual] = useState(false);
   const [mQuestions, setMQuestions] = useState<File | null>(null);
   const [mContent, setMContent] = useState<File | null>(null);
@@ -202,21 +207,52 @@ export default function UploadRun() {
     }
   }
 
+  // Run a review start, catching the already-reviewed 409 so we can offer a
+  // "review again anyway" banner instead of just erroring.
+  async function runGuarded(
+    start: (force: boolean) => Promise<{ run_id: string; warnings?: string[] }>,
+    failMsg: string
+  ) {
+    setGuard(null);
+    setStep("preparing");
+    try {
+      const r = await start(false);
+      if (r.warnings?.length) setMsg(r.warnings.join(" · "));
+      attachStream(r.run_id);
+    } catch (e: any) {
+      const detail = e instanceof ApiError ? e.body?.detail : null;
+      if (e instanceof ApiError && e.status === 409 && detail?.already_reviewed) {
+        setStep("idle");
+        setMsg("");
+        setGuard({
+          prior: detail.prior || [],
+          retry: async () => {
+            setGuard(null);
+            setStep("preparing");
+            try {
+              const r = await start(true);
+              if (r.warnings?.length) setMsg(r.warnings.join(" · "));
+              attachStream(r.run_id);
+            } catch (e2: any) {
+              setStep("error");
+              setMsg(e2.message || failMsg);
+            }
+          },
+        });
+      } else {
+        setStep("error");
+        setMsg(e.message || failMsg);
+      }
+    }
+  }
+
   async function reviewFromUnit() {
     if (!unitId) {
       setMsg("Select a unit first.");
       return;
     }
-    setStep("preparing");
     setMsg("Fetching slides & questions from the mastersheet links…");
-    try {
-      const r = await prepareAndRun(unitId, set);
-      if (r.warnings?.length) setMsg(r.warnings.join(" · "));
-      attachStream(r.run_id);
-    } catch (e: any) {
-      setStep("error");
-      setMsg(e.message || "Could not prepare this unit");
-    }
+    await runGuarded((force) => prepareAndRun(unitId, set, force), "Could not prepare this unit");
   }
 
   async function reviewEvaluation() {
@@ -224,27 +260,20 @@ export default function UploadRun() {
       setMsg("Select the unit(s) this evaluation covers.");
       return;
     }
-    setStep("preparing");
     setMsg(
       evalFile
         ? "Parsing the uploaded evaluation & fetching the selected units' content…"
         : "Fetching the evaluation & the selected units' content…"
     );
-    try {
-      // uploaded exam file wins; else a pasted link; else assemble from the units' docs
-      // evaluations always assemble from the MCQ assignment (no in-class variant)
-      const rubric = { text: rubricText, url: rubricUrl, file: rubricFile };
-      // any uploaded file (exam and/or marking scheme) needs the multipart endpoint
-      const r =
+    const rubric = { text: rubricText, url: rubricUrl, file: rubricFile };
+    // any uploaded file (exam and/or marking scheme) needs the multipart endpoint
+    await runGuarded(
+      (force) =>
         evalFile || rubricFile
-          ? await createEvaluationUpload(evalUnits, evalFile, evalTitle, questionsUrl, rubric)
-          : await createEvaluation(evalUnits, "mcq_assignment", evalTitle, questionsUrl, rubric);
-      if (r.warnings?.length) setMsg(r.warnings.join(" · "));
-      attachStream(r.run_id);
-    } catch (e: any) {
-      setStep("error");
-      setMsg(e.message || "Could not build the evaluation");
-    }
+          ? createEvaluationUpload(evalUnits, evalFile, evalTitle, questionsUrl, rubric, force)
+          : createEvaluation(evalUnits, "mcq_assignment", evalTitle, questionsUrl, rubric, force),
+      "Could not build the evaluation"
+    );
   }
 
   async function reviewBatch() {
@@ -663,6 +692,43 @@ export default function UploadRun() {
               </div>
             )}
           </>
+        )}
+
+        {guard && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">
+            <div className="font-medium text-amber-900">⚠ Already reviewed</div>
+            <div className="mt-2 space-y-2">
+              {guard.prior.map((p) => (
+                <div
+                  key={p.run_id}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 text-amber-900/90"
+                >
+                  <span className="font-medium">{p.title}</span>
+                  <span className="text-amber-800/70">
+                    reviewed by <b>{p.reviewer}</b> on {p.created_at.slice(0, 10)}
+                  </span>
+                  <span className="tabular-nums text-xs text-amber-800/70">
+                    {p.verdict_counts?.APPROVE || 0} approve · {p.verdict_counts?.REVISE || 0} revise
+                    · {p.verdict_counts?.DELETE || 0} delete
+                  </span>
+                  <a
+                    className="text-accent-700 underline"
+                    href={`/dashboard/${p.run_id}`}
+                  >
+                    Open previous review
+                  </a>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex gap-2">
+              <button className="btn-primary" onClick={() => guard.retry()}>
+                Review again anyway
+              </button>
+              <button className="btn-ghost" onClick={() => setGuard(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
         )}
 
         {msg && <div className="text-sm text-black/55">{msg}</div>}

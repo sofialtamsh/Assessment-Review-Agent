@@ -10,11 +10,54 @@ import type {
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "http://localhost:8000";
 
-/** fetch that turns "Failed to fetch" into a clear, diagnosable message. */
+// ---- lightweight auth (shared-password login) --------------------------- //
+const AUTH_KEY = "arp_auth";
+
+export interface AuthUser {
+  name: string;
+  token: string;
+}
+
+export function getAuth(): AuthUser | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(AUTH_KEY);
+    return raw ? (JSON.parse(raw) as AuthUser) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setAuth(user: AuthUser): void {
+  if (typeof window !== "undefined") window.localStorage.setItem(AUTH_KEY, JSON.stringify(user));
+}
+
+export function clearAuth(): void {
+  if (typeof window !== "undefined") window.localStorage.removeItem(AUTH_KEY);
+}
+
+function authHeaders(): Record<string, string> {
+  const a = getAuth();
+  return a ? { "X-Reviewer-Name": a.name, "X-Reviewer-Token": a.token } : {};
+}
+
+/** Error that preserves the HTTP status + parsed body (so callers can read a 409). */
+export class ApiError extends Error {
+  status: number;
+  body: any;
+  constructor(status: number, message: string, body: any) {
+    super(message);
+    this.status = status;
+    this.body = body;
+  }
+}
+
+/** fetch that turns "Failed to fetch" into a clear, diagnosable message and adds auth. */
 async function safeFetch(path: string, init?: RequestInit): Promise<Response> {
   const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
+  const headers = { ...(init?.headers as Record<string, string>), ...authHeaders() };
   try {
-    return await fetch(url, init);
+    return await fetch(url, { ...init, headers });
   } catch (e) {
     throw new Error(
       `Cannot reach the backend at ${API_BASE}. Is the API running and is ` +
@@ -26,9 +69,71 @@ async function safeFetch(path: string, init?: RequestInit): Promise<Response> {
 async function j<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`${res.status} ${res.statusText} — ${text}`);
+    let body: any = text;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      /* not json */
+    }
+    const msg = typeof body?.detail === "string" ? body.detail : text;
+    throw new ApiError(res.status, `${res.status} ${res.statusText} — ${msg}`, body);
   }
   return res.json() as Promise<T>;
+}
+
+// ---- auth + activity ---------------------------------------------------- //
+export async function login(name: string, password: string): Promise<AuthUser> {
+  const user = await j<AuthUser>(
+    await safeFetch("/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, password }),
+    })
+  );
+  setAuth(user);
+  return user;
+}
+
+export interface PriorReview {
+  run_id: string;
+  session_id: string;
+  source_set: string;
+  title: string;
+  reviewer: string;
+  total_questions: number;
+  pass_rate: number;
+  verdict_counts: Record<string, number>;
+  rubric: { applied?: boolean; fails?: number; warns?: number };
+  created_at: string;
+}
+
+export interface ActivityItem {
+  run_id: string;
+  session_id: string;
+  source_set: string;
+  reviewer: string;
+  status: string;
+  title: string;
+  total_questions: number;
+  verdict_counts: Record<string, number>;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getActivity(limit = 25): Promise<{ activity: ActivityItem[] }> {
+  return j(await safeFetch(`/activity?limit=${limit}`, { cache: "no-store" }));
+}
+
+export async function getReviewStatus(
+  sessionId: string,
+  sourceSet: string
+): Promise<{ prior: PriorReview[] }> {
+  return j(
+    await safeFetch(
+      `/review_status?session_id=${encodeURIComponent(sessionId)}&source_set=${sourceSet}`,
+      { cache: "no-store" }
+    )
+  );
 }
 
 export async function checkHealth(): Promise<{ ok: boolean; detail: string }> {
@@ -77,13 +182,14 @@ export async function listUnits(): Promise<{ units: UnitInfo[] }> {
 
 export async function prepareAndRun(
   unitId: string,
-  set: string
+  set: string,
+  force = false
 ): Promise<{ run_id: string; status: string; questions: number; warnings: string[] }> {
   return j(
     await safeFetch(`/units/${unitId}/prepare_and_run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ set }),
+      body: JSON.stringify({ set, force }),
     })
   );
 }
@@ -99,7 +205,8 @@ export async function createEvaluation(
   set: string,
   title?: string,
   questionsUrl?: string,
-  rubric?: RubricInput
+  rubric?: RubricInput,
+  force = false
 ): Promise<{ run_id: string; status: string; units: number; questions: number; warnings: string[] }> {
   return j(
     await safeFetch("/units/evaluation", {
@@ -112,6 +219,7 @@ export async function createEvaluation(
         questions_url: questionsUrl,
         rubric_text: rubric?.text || "",
         rubric_url: rubric?.url || "",
+        force,
       }),
     })
   );
@@ -122,7 +230,8 @@ export async function createEvaluationUpload(
   examFile: File | null,
   title?: string,
   questionsUrl?: string,
-  rubric?: RubricInput
+  rubric?: RubricInput,
+  force = false
 ): Promise<{ run_id: string; status: string; units: number; questions: number; warnings: string[] }> {
   const fd = new FormData();
   fd.append("unit_ids", unitIds.join(","));
@@ -132,6 +241,7 @@ export async function createEvaluationUpload(
   if (rubric?.text) fd.append("rubric_text", rubric.text);
   if (rubric?.url) fd.append("rubric_url", rubric.url);
   if (rubric?.file) fd.append("rubric_file", rubric.file);
+  if (force) fd.append("force", "true");
   return j(await safeFetch("/units/evaluation/upload", { method: "POST", body: fd }));
 }
 

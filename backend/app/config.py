@@ -56,6 +56,9 @@ class Settings(BaseModel):
     # secrets from env, never from yaml
     openrouter_api_key: str | None = None
     voyage_api_key: str | None = None
+    # lightweight shared-password login (identity/attribution, not hard security)
+    shared_password: str = "admin@123"
+    auth_secret: str = "arp-dev-secret"
 
     def model_for(self, phase: str) -> str:
         return self.models.get(phase, "anthropic/claude-sonnet-4.5")
@@ -93,6 +96,8 @@ def get_settings() -> Settings:
     settings = Settings(**data)
     settings.openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
     settings.voyage_api_key = os.getenv("VOYAGE_API_KEY")
+    settings.shared_password = os.getenv("ARP_SHARED_PASSWORD", settings.shared_password)
+    settings.auth_secret = os.getenv("ARP_AUTH_SECRET", settings.auth_secret)
     if os.getenv("ARP_DB_PATH"):
         settings.db_path = os.environ["ARP_DB_PATH"]
     # Allow env to force the mock provider (handy for CI / no-key demos).

@@ -5,11 +5,11 @@ from __future__ import annotations
 
 import json
 
-from fastapi import Body, FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import Body, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 
-from . import audit, export, service, store
+from . import audit, auth, export, service, store
 from .config import get_settings
 from .db import get_session, init_db
 from .ingestion.content import parse_content
@@ -37,6 +37,30 @@ def _startup() -> None:
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "llm_provider": settings.llm.provider}
+
+
+# --------------------------------------------------------------------------- #
+# Auth (lightweight shared-password login) + activity feed
+# --------------------------------------------------------------------------- #
+@app.post("/auth/login")
+def auth_login(body: dict = Body(...)) -> dict:
+    try:
+        return auth.login(body.get("name", ""), body.get("password", ""))
+    except ValueError as e:
+        raise HTTPException(401, str(e))
+
+
+@app.get("/activity")
+def activity(limit: int = Query(25)) -> dict:
+    """Recent reviews (in-progress + completed) with who ran them — the activity feed."""
+    return {"activity": store.list_activity(limit)}
+
+
+@app.get("/review_status")
+def review_status(session_id: str = Query(...),
+                  source_set: str = Query("mcq_assignment")) -> dict:
+    """Prior completed reviews for this unit + set (used to warn before re-reviewing)."""
+    return {"prior": store.find_prior_reviews(session_id, source_set)}
 
 
 # --------------------------------------------------------------------------- #
@@ -216,19 +240,38 @@ def _attach_rubric(eval_id: str, warnings: list[str], *, text: str = "", url: st
         "has_text": bool(combined.text), "source": combined.source[:120]})
 
 
+def _guardrail(session_id: str, source_set: str, questions: list, force: bool) -> None:
+    """Warn (via 409) if this unit/eval + set — or an identical question set — was
+    already reviewed. The caller retries with force=true to review again anyway."""
+    if force:
+        return
+    chash = store.question_set_hash(questions) if questions else ""
+    prior = store.find_prior_reviews(session_id, source_set, content_hash=chash)
+    if prior:
+        p = prior[0]
+        raise HTTPException(status_code=409, detail={
+            "already_reviewed": True,
+            "message": f"Already reviewed by {p['reviewer']} on {p['created_at'][:10]}.",
+            "prior": prior[:3],
+        })
+
+
 async def _finalize_evaluation(eval_id: str, unit_ids: list[str], all_chunks: list,
-                               all_questions: list, warnings: list[str]) -> dict:
+                               all_questions: list, warnings: list[str],
+                               reviewer: str = "", force: bool = False) -> dict:
     """Persist the assembled evaluation, kick off the review, return the run payload."""
     if not all_questions:
         raise HTTPException(422, "No questions could be assembled for this evaluation. "
                             + " | ".join(warnings))
+    _guardrail(eval_id, "examination", all_questions, force)
     store.save_chunks(all_chunks)
     store.save_questions(all_questions)
     store.mark_prepared(eval_id, "examination")
     audit.log("evaluation_created", detail={
-        "eval_id": eval_id, "units": unit_ids, "questions": len(all_questions)})
+        "eval_id": eval_id, "units": unit_ids, "questions": len(all_questions),
+        "reviewer": reviewer or "unknown"})
 
-    run_id = manager.create_run(eval_id, "examination")
+    run_id = manager.create_run(eval_id, "examination", reviewer=reviewer)
     await manager.start(run_id)
     return {"run_id": run_id, "status": "running", "units": len(unit_ids),
             "questions": len(all_questions), "warnings": warnings}
@@ -295,7 +338,7 @@ def _assemble_unit_questions(eval_id: str, rows: list, source_set: str,
 
 
 @app.post("/units/evaluation")
-async def create_evaluation(body: dict = Body(...)) -> dict:
+async def create_evaluation(body: dict = Body(...), request: Request = None) -> dict:
     """Build a single evaluation set spanning MULTIPLE units and review it as one.
 
     Content and questions are fetched from each selected unit's mastersheet links and
@@ -319,11 +362,14 @@ async def create_evaluation(body: dict = Body(...)) -> dict:
     else:
         all_questions = _assemble_unit_questions(eval_id, rows, source_set, warnings)
 
-    return await _finalize_evaluation(eval_id, unit_ids, all_chunks, all_questions, warnings)
+    return await _finalize_evaluation(
+        eval_id, unit_ids, all_chunks, all_questions, warnings,
+        reviewer=auth.reviewer_from_request(request), force=bool(body.get("force")))
 
 
 @app.post("/units/evaluation/upload")
 async def create_evaluation_upload(
+    request: Request,
     unit_ids: str = Form(...),
     file: UploadFile | None = File(None),
     questions_url: str = Form(""),
@@ -332,6 +378,7 @@ async def create_evaluation_upload(
     rubric_file: UploadFile | None = File(None),
     rubric_text: str = Form(""),
     rubric_url: str = Form(""),
+    force: str = Form(""),
 ) -> dict:
     """Multipart evaluation entry: like /units/evaluation but able to carry uploaded
     FILES (an exam file and/or a marking-scheme file).
@@ -369,18 +416,25 @@ async def create_evaluation_upload(
     else:
         questions = _assemble_unit_questions(eval_id, rows, set, warnings)
 
-    return await _finalize_evaluation(eval_id, ids, all_chunks, questions, warnings)
+    return await _finalize_evaluation(
+        eval_id, ids, all_chunks, questions, warnings,
+        reviewer=auth.reviewer_from_request(request),
+        force=str(force).lower() in ("1", "true", "yes"))
 
 
 @app.post("/units/{unit_id}/prepare_and_run")
-async def prepare_and_run(unit_id: str, body: dict = Body(...)) -> dict:
+async def prepare_and_run(unit_id: str, body: dict = Body(...), request: Request = None) -> dict:
     """One call: fetch this unit's content + questions from the mastersheet links,
     then start the review. `set` is 'mcq_assignment' or 'in_class_quiz'."""
     source_set = body.get("set", "mcq_assignment")
+    reviewer = auth.reviewer_from_request(request)
     n, warnings = _fetch_unit(unit_id, source_set)
+    questions = store.load_questions(unit_id, source_set, include_deleted=False)
+    _guardrail(unit_id, source_set, questions, bool(body.get("force")))
     audit.log("prepared_from_mastersheet",
-              detail={"unit_id": unit_id, "set": source_set, "questions": n})
-    run_id = manager.create_run(unit_id, source_set)
+              detail={"unit_id": unit_id, "set": source_set, "questions": n,
+                      "reviewer": reviewer})
+    run_id = manager.create_run(unit_id, source_set, reviewer=reviewer)
     await manager.start(run_id)
     return {"run_id": run_id, "status": "running", "questions": n, "warnings": warnings}
 
@@ -437,13 +491,15 @@ def _fetch_unit(unit_id: str, source_set: str) -> tuple[int, list[str]]:
 
 
 @app.post("/units/batch")
-async def batch_review(body: dict = Body(...)) -> dict:
+async def batch_review(body: dict = Body(...), request: Request = None) -> dict:
     """Review multiple units SEPARATELY in one action — each gets its own run.
-    Returns a batch id and one entry per unit (run_id, or an error if it failed)."""
+    Returns a batch id and one entry per unit (run_id, or an error if it failed).
+    Batch never blocks on the already-reviewed guardrail; each item is annotated instead."""
     import uuid as _uuid
 
     unit_ids = body.get("unit_ids") or []
     source_set = body.get("set", "mcq_assignment")
+    reviewer = auth.reviewer_from_request(request)
     if len(unit_ids) < 2:
         raise HTTPException(400, "Select at least two units for a batch review.")
     items: list[dict] = []
@@ -452,10 +508,13 @@ async def batch_review(body: dict = Body(...)) -> dict:
         unit_name = row.unit if row else uid
         try:
             n, warnings = _fetch_unit(uid, source_set)
-            run_id = manager.create_run(uid, source_set)
+            prior = store.find_prior_reviews(uid, source_set)
+            run_id = manager.create_run(uid, source_set, reviewer=reviewer)
             await manager.start(run_id)
             items.append({"unit_id": uid, "unit": unit_name, "run_id": run_id,
-                          "questions": n, "warnings": warnings})
+                          "questions": n, "warnings": warnings,
+                          "already_reviewed": bool(prior),
+                          "prior": prior[:1]})
         except HTTPException as e:
             items.append({"unit_id": uid, "unit": unit_name, "run_id": None,
                           "error": str(e.detail)})
@@ -579,15 +638,18 @@ def list_sessions() -> dict:
 # Runs
 # --------------------------------------------------------------------------- #
 @app.post("/runs")
-async def create_run(body: dict = Body(...)) -> dict:
+async def create_run(body: dict = Body(...), request: Request = None) -> dict:
     session_id = body.get("session_id")
     source_set = body.get("source_set", "mcq_assignment")
     token_limit = body.get("token_limit")
     if not session_id:
         raise HTTPException(400, "session_id is required")
-    if not store.load_questions(session_id, source_set, include_deleted=False):
+    questions = store.load_questions(session_id, source_set, include_deleted=False)
+    if not questions:
         raise HTTPException(400, f"No '{source_set}' questions for session {session_id}")
-    run_id = manager.create_run(session_id, source_set, token_limit)
+    _guardrail(session_id, source_set, questions, bool(body.get("force")))
+    run_id = manager.create_run(session_id, source_set, token_limit,
+                                reviewer=auth.reviewer_from_request(request))
     await manager.start(run_id, token_limit)
     return {"run_id": run_id, "status": "running"}
 

@@ -37,16 +37,18 @@ class RunManager:
 
     # -- lifecycle --------------------------------------------------------- #
     def create_run(self, session_id: str, source_set: str,
-                   token_limit: int | None = None) -> str:
+                   token_limit: int | None = None, reviewer: str = "") -> str:
         run_id = f"run_{uuid.uuid4().hex[:10]}"
         limit = _settings.budget.token_limit if token_limit is None else token_limit
         with get_session() as db:
             db.add(RunRow(run_id=run_id, session_id=session_id, source_set=source_set,
-                          status="queued", budget={"limit": limit, "spent": 0}))
+                          reviewer=reviewer or "unknown", status="queued",
+                          budget={"limit": limit, "spent": 0}))
             db.commit()
         self._runs[run_id] = _RunState()
         audit.log("run_created", run_id=run_id,
-                  detail={"session_id": session_id, "source_set": source_set})
+                  detail={"session_id": session_id, "source_set": source_set,
+                          "reviewer": reviewer or "unknown"})
         return run_id
 
     async def start(self, run_id: str, token_limit: int | None = None) -> None:
@@ -88,6 +90,7 @@ class RunManager:
 
         completed: list[str] = []
         errors: list[str] = []
+        final_report: dict | None = None
         state = {"run_id": run_id, "session_id": session_id,
                  "questions": questions, "findings": []}
 
@@ -101,7 +104,8 @@ class RunManager:
                         audit.log("verdict", run_id=run_id, question_id=j.question_id,
                                   detail={"verdict": j.verdict, "reason": j.reason})
                 if delta.get("set_report") is not None:
-                    self._update_run(run_id, report=delta["set_report"].model_dump())
+                    final_report = delta["set_report"].model_dump()
+                    self._update_run(run_id, report=final_report)
                 for pe in delta.get("errors", []):
                     errors.append(f"{pe.phase}: {pe.message}")
                 completed.append(node_name)
@@ -120,6 +124,15 @@ class RunManager:
         self._update_run(run_id, status=status, completed_phases=completed,
                          errors=errors, cost=self._cost_dump(cost),
                          budget=budget.model_dump())
+        # record a compact summary so a later reviewer is warned this was already reviewed
+        if final_report is not None:
+            try:
+                store.save_review_summary(
+                    run_id=run_id, session_id=session_id, source_set=source_set,
+                    title=store.db_session_title(session_id), reviewer=run.reviewer,
+                    report=final_report, questions=questions)
+            except Exception:  # noqa: BLE001 - summary is best-effort, never fail the run
+                pass
         self._publish(loop, run_id, {
             "type": "done", "status": status,
             "cost": self._cost_dump(cost), "budget": budget.model_dump(),
