@@ -10,6 +10,7 @@ import {
   createEvaluation,
   createEvaluationUpload,
   createRun,
+  inferRubric,
   ingestMastersheetLink,
   listUnits,
   prepareAndRun,
@@ -96,6 +97,10 @@ export default function UploadRun() {
   const [rubricUrl, setRubricUrl] = useState("");
   const [rubricText, setRubricText] = useState("");
   const [showRubric, setShowRubric] = useState(false);
+  // reverse-engineered structured criteria (learned from a reference set)
+  const [rubricCriteria, setRubricCriteria] = useState<unknown[]>([]);
+  const [inferBusy, setInferBusy] = useState(false);
+  const [inferNote, setInferNote] = useState("");
 
   // manual (advanced) flow
   // already-reviewed guardrail banner (prior summary + "review again anyway")
@@ -265,7 +270,7 @@ export default function UploadRun() {
         ? "Parsing the uploaded evaluation & fetching the selected units' content…"
         : "Fetching the evaluation & the selected units' content…"
     );
-    const rubric = { text: rubricText, url: rubricUrl, file: rubricFile };
+    const rubric = { text: rubricText, url: rubricUrl, file: rubricFile, criteria: rubricCriteria };
     // any uploaded file (exam and/or marking scheme) needs the multipart endpoint
     await runGuarded(
       (force) =>
@@ -274,6 +279,24 @@ export default function UploadRun() {
           : createEvaluation(evalUnits, "mcq_assignment", evalTitle, questionsUrl, rubric, force),
       "Could not build the evaluation"
     );
+  }
+
+  async function reverseEngineer(file: File) {
+    setInferBusy(true);
+    setInferNote("");
+    try {
+      const r = await inferRubric({ file });
+      setRubricText(r.rubric.text || "");
+      setRubricCriteria((r.rubric.criteria as unknown[]) || []);
+      setInferNote(
+        `Learned ${r.n_criteria} criteria from ${r.n_questions} reference questions — edit below, then review.`
+      );
+      setShowRubric(true);
+    } catch (e: any) {
+      setInferNote(e.message || "Could not learn from that reference set.");
+    } finally {
+      setInferBusy(false);
+    }
   }
 
   async function reviewBatch() {
@@ -577,7 +600,7 @@ export default function UploadRun() {
                       <span>
                         Marking scheme / criteria{" "}
                         <span className="font-normal text-black/40">(optional)</span>
-                        {(rubricFile || rubricUrl || rubricText) && (
+                        {(rubricFile || rubricUrl || rubricText || rubricCriteria.length > 0) && (
                           <span className="ml-2 chip bg-accent-50 text-accent-700">attached</span>
                         )}
                       </span>
@@ -591,6 +614,39 @@ export default function UploadRun() {
                           columns like criterion / metric / comparator / target / gate) that also
                           drives pass/fail compliance checks. Provide a file, a link, or paste text.
                         </p>
+
+                        {/* reverse-engineer a scheme from a reference (gold) set */}
+                        <div className="rounded-lg border border-dashed border-accent-300 bg-accent-50/40 p-2.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-medium text-accent-800">
+                              ✨ Reverse-engineer from a reference set
+                            </span>
+                            <label className="cursor-pointer rounded-lg border border-accent-300 bg-white px-2.5 py-1 text-xs hover:border-accent-400">
+                              {inferBusy ? "Learning…" : "Upload good/approved questions"}
+                              <input
+                                type="file"
+                                className="hidden"
+                                disabled={inferBusy}
+                                onChange={(e) =>
+                                  e.target.files?.[0] && reverseEngineer(e.target.files[0])
+                                }
+                              />
+                            </label>
+                            {rubricCriteria.length > 0 && (
+                              <span className="chip bg-accent-100 text-accent-800">
+                                {rubricCriteria.length} learned criteria
+                              </span>
+                            )}
+                          </div>
+                          {inferNote && (
+                            <p className="mt-1.5 text-xs text-accent-800/80">{inferNote}</p>
+                          )}
+                          <p className="mt-1 text-[11px] text-black/40">
+                            Analyzes a sample set (.xlsx/.csv/.md/.zip) and fills the criteria +
+                            guidance below — edit anything before you review.
+                          </p>
+                        </div>
+
                         <div className="flex flex-wrap items-end gap-3">
                           <div>
                             <div className="label mb-1">Upload marking scheme</div>

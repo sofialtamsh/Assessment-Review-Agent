@@ -1,6 +1,7 @@
 import type {
   Instruction,
   ReportResponse,
+  Rubric,
   RunInfo,
   SessionInfo,
   TargetablePhase,
@@ -198,6 +199,20 @@ export interface RubricInput {
   text?: string;
   url?: string;
   file?: File | null;
+  criteria?: unknown[]; // reverse-engineered structured criteria
+}
+
+/** Reverse-engineer a marking scheme from a reference (gold) question set. */
+export async function inferRubric(opts: {
+  file?: File | null;
+  url?: string;
+  text?: string;
+}): Promise<{ n_questions: number; n_criteria: number; rubric: Rubric }> {
+  const fd = new FormData();
+  if (opts.file) fd.append("file", opts.file);
+  if (opts.url) fd.append("questions_url", opts.url);
+  if (opts.text) fd.append("text", opts.text);
+  return j(await safeFetch("/rubric/infer", { method: "POST", body: fd }));
 }
 
 export async function createEvaluation(
@@ -219,6 +234,7 @@ export async function createEvaluation(
         questions_url: questionsUrl,
         rubric_text: rubric?.text || "",
         rubric_url: rubric?.url || "",
+        rubric_criteria: rubric?.criteria || undefined,
         force,
       }),
     })
@@ -241,6 +257,7 @@ export async function createEvaluationUpload(
   if (rubric?.text) fd.append("rubric_text", rubric.text);
   if (rubric?.url) fd.append("rubric_url", rubric.url);
   if (rubric?.file) fd.append("rubric_file", rubric.file);
+  if (rubric?.criteria?.length) fd.append("rubric_criteria", JSON.stringify(rubric.criteria));
   if (force) fd.append("force", "true");
   return j(await safeFetch("/units/evaluation/upload", { method: "POST", body: fd }));
 }

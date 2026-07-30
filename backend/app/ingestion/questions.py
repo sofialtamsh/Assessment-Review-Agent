@@ -153,7 +153,8 @@ def _infer_type(row: dict[str, Any], options: list[Option], correct: list[str]) 
 
 
 def _row_to_question(row: dict[str, Any], default_session: str) -> Question | None:
-    stem = str(first(row, "question", "questions", "stem", "question_text", "text")).strip()
+    stem = str(first(row, "question", "questions", "question_content", "content",
+                     "stem", "question_text", "text")).strip()
     if not stem or stem.lower() in _HEADER_ECHO:  # skip blanks and repeated header rows
         return None
     session_id = str(first(row, "session_id", "session", "unit", default=default_session)).strip()
@@ -228,8 +229,12 @@ def _norm_correct_token(token: str, options: list[Option]) -> str:
     t = token.strip()
     if not t:
         return ""
-    # already a key?
     keys = {o.key.lower(): o.key for o in options}
+    # "Option B" / "option b)" (the exported/question-bank answer style) -> "B"
+    m = re.match(r"option\s*([a-h])\b", t, re.I)
+    if m and m.group(1).upper() in {o.key for o in options}:
+        return m.group(1).upper()
+    # already a key?
     if t.lower() in keys:
         return keys[t.lower()]
     # single letter answer where options use letter keys

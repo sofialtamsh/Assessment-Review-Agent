@@ -63,6 +63,52 @@ def review_status(session_id: str = Query(...),
     return {"prior": store.find_prior_reviews(session_id, source_set)}
 
 
+@app.post("/rubric/infer")
+async def infer_rubric_endpoint(
+    file: UploadFile | None = File(None),
+    questions_url: str = Form(""),
+    text: str = Form(""),
+) -> dict:
+    """Reverse-engineer a marking scheme from a reference (gold/approved) question set.
+
+    Provide a reference set as a file (.xlsx/.csv/.json/.md/.txt/.zip), a link, or pasted
+    MCQ text. Returns an inferred rubric (written guidance + structured criteria) the
+    reviewer can edit and attach to an evaluation.
+    """
+    from .ingestion.fetch import fetch_questions
+    from .ingestion.mcq_text import parse_mcq_text
+    from .rubric_infer import infer_rubric
+
+    source = ""
+    try:
+        if file is not None:
+            data = await file.read()
+            source = file.filename or "reference set"
+            questions = _parse_eval_upload(data, file.filename or "", "infer", "reference")
+        elif questions_url.strip():
+            source = questions_url.strip()
+            questions = fetch_questions("infer", source, "examination", default_topic="reference")
+        elif text.strip():
+            source = "pasted reference"
+            questions = parse_mcq_text(text, "infer", "examination", default_topic="reference")
+        else:
+            raise HTTPException(400, "Provide a reference set (file, link, or pasted text).")
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(422, f"Could not parse the reference set: {e}")
+
+    if not questions:
+        raise HTTPException(422, "Parsed the reference set but found no questions to learn from.")
+
+    rubric = infer_rubric(questions, source=source)
+    return {
+        "n_questions": len(questions),
+        "n_criteria": len(rubric.criteria),
+        "rubric": rubric.model_dump(),
+    }
+
+
 # --------------------------------------------------------------------------- #
 # Uploads / ingestion
 # --------------------------------------------------------------------------- #
@@ -203,16 +249,23 @@ def _fetch_eval_content(eval_id: str, rows: list) -> tuple[list, list[str]]:
 
 
 def _attach_rubric(eval_id: str, warnings: list[str], *, text: str = "", url: str = "",
-                   file_bytes: bytes | None = None, filename: str = "") -> None:
-    """Assemble a marking scheme from any of pasted text / uploaded file / link and
-    attach it to the evaluation. Fetch/parse failures are non-fatal (warnings)."""
+                   file_bytes: bytes | None = None, filename: str = "",
+                   criteria: list | None = None) -> None:
+    """Assemble a marking scheme from any of pasted text / uploaded file / link /
+    reverse-engineered criteria and attach it. Fetch/parse failures are non-fatal."""
     from .ingestion.fetch import fetch_rubric
     from .ingestion.rubric import rubric_from_bytes, rubric_from_text
-    from .schemas import Rubric
+    from .schemas import Rubric, RubricCriterion
 
     parts: list = []
     if text and text.strip():
         parts.append(rubric_from_text(text, source="pasted"))
+    if criteria:
+        try:
+            crits = [RubricCriterion(**c) for c in criteria]
+            parts.append(Rubric(text="", criteria=crits, source="reverse-engineered"))
+        except Exception as e:  # noqa: BLE001
+            warnings.append(f"marking scheme criteria — {e}")
     if file_bytes:
         try:
             parts.append(rubric_from_bytes(file_bytes, filename or "rubric", source=filename))
@@ -355,7 +408,8 @@ async def create_evaluation(body: dict = Body(...), request: Request = None) -> 
     _save_eval_session(eval_id, title, rows)
     all_chunks, warnings = _fetch_eval_content(eval_id, rows)
     _attach_rubric(eval_id, warnings,
-                   text=body.get("rubric_text", ""), url=body.get("rubric_url", ""))
+                   text=body.get("rubric_text", ""), url=body.get("rubric_url", ""),
+                   criteria=body.get("rubric_criteria"))
 
     if questions_url:
         all_questions = _questions_from_url(eval_id, questions_url, title)
@@ -378,6 +432,7 @@ async def create_evaluation_upload(
     rubric_file: UploadFile | None = File(None),
     rubric_text: str = Form(""),
     rubric_url: str = Form(""),
+    rubric_criteria: str = Form(""),
     force: str = Form(""),
 ) -> dict:
     """Multipart evaluation entry: like /units/evaluation but able to carry uploaded
@@ -397,9 +452,14 @@ async def create_evaluation_upload(
     _save_eval_session(eval_id, title, rows)
     all_chunks, warnings = _fetch_eval_content(eval_id, rows)
     rubric_bytes = await rubric_file.read() if rubric_file is not None else None
+    try:
+        parsed_criteria = json.loads(rubric_criteria) if rubric_criteria.strip() else None
+    except json.JSONDecodeError:
+        parsed_criteria = None
     _attach_rubric(eval_id, warnings, text=rubric_text, url=rubric_url,
                    file_bytes=rubric_bytes,
-                   filename=(rubric_file.filename if rubric_file is not None else ""))
+                   filename=(rubric_file.filename if rubric_file is not None else ""),
+                   criteria=parsed_criteria)
 
     if file is not None:
         data = await file.read()
