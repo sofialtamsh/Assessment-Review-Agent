@@ -1,9 +1,18 @@
 """Assemble the set-level report from questions, findings, and judgments."""
 from __future__ import annotations
 
+import re
 from collections import Counter
 
-from .schemas import DuplicateCluster, Finding, Judgment, Question, SetReport
+from .schemas import (
+    DuplicateCluster,
+    Finding,
+    Judgment,
+    Question,
+    RubricCheck,
+    RubricCriterion,
+    SetReport,
+)
 
 # Canonical phase order + labels for the per-phase verification view.
 PHASE_META = [
@@ -66,7 +75,8 @@ _DUP_CHECKS = {
 
 
 def build_report(session_id: str, questions: list[Question],
-                 findings: list[Finding], judgments: list[Judgment]) -> SetReport:
+                 findings: list[Finding], judgments: list[Judgment],
+                 rubric: dict | None = None) -> SetReport:
     n = len(questions)
     verdicts = Counter(j.verdict for j in judgments)
     approve = verdicts.get("APPROVE", 0)
@@ -109,6 +119,15 @@ def build_report(session_id: str, questions: list[Question],
     total_bloom = sum(bloom.values())
     ratio = round(higher / total_bloom, 3) if total_bloom else 0.0
 
+    # marking-scheme compliance (deterministic checks over the metrics above)
+    metric_values = _metric_values(
+        n, ratio, difficulty, clusters, out_of_scope, verbatim, key_balance,
+        approve, findings,
+    )
+    criteria = [RubricCriterion(**c) for c in (rubric or {}).get("criteria", [])]
+    compliance = evaluate_rubric(criteria, metric_values)
+    rubric_applied = bool((rubric or {}).get("text") or criteria)
+
     return SetReport(
         session_id=session_id,
         total_questions=n,
@@ -123,7 +142,94 @@ def build_report(session_id: str, questions: list[Question],
         subtopic_coverage=dict(coverage),
         over_tested_subtopics=over_tested,
         scenario_vs_recall_ratio=ratio,
+        rubric_applied=rubric_applied,
+        rubric_compliance=compliance,
     )
+
+
+# --------------------------------------------------------------------------- #
+# Marking-scheme (rubric) compliance
+# --------------------------------------------------------------------------- #
+def _metric_values(n, ratio, difficulty, clusters, out_of_scope, verbatim,
+                   key_balance, approve, findings) -> dict[str, float]:
+    """Compute each supported rubric metric from the set-level tallies."""
+    pct = lambda c: round(100 * c / n, 1) if n else 0.0
+    total_keys = sum(key_balance.values())
+    coverage_gaps = sum(1 for f in findings if f.check_name in
+                        {"coverage_gap", "subtopic_gap", "uncovered_subtopic"})
+    return {
+        "total_questions": float(n),
+        "higher_order_pct": round(ratio * 100, 1),
+        "easy_pct": pct(difficulty.get("easy", 0)),
+        "medium_pct": pct(difficulty.get("medium", 0)),
+        "hard_pct": pct(difficulty.get("hard", 0)),
+        "duplicate_count": float(len(clusters)),
+        "out_of_scope_count": float(len(out_of_scope)),
+        "verbatim_lift_count": float(len(verbatim)),
+        "approve_rate_pct": pct(approve),
+        "max_key_share_pct": round(100 * max(key_balance.values()) / total_keys, 1)
+        if total_keys else 0.0,
+        "uncovered_subtopics": float(coverage_gaps),
+    }
+
+
+def evaluate_rubric(criteria: list[RubricCriterion],
+                    values: dict[str, float]) -> list[RubricCheck]:
+    checks: list[RubricCheck] = []
+    for c in criteria:
+        if not c.metric or c.metric not in values:
+            checks.append(RubricCheck(
+                name=c.name, metric=c.metric, comparator=c.comparator, target=c.target,
+                actual="", gate=c.gate, status="manual",
+                detail="No automatic metric for this criterion — review manually.",
+            ))
+            continue
+        actual = values[c.metric]
+        ok = _compare(actual, c.comparator, c.target)
+        if ok:
+            status = "pass"
+        elif c.gate == "fail":
+            status = "fail"
+        else:
+            status = "warn"
+        checks.append(RubricCheck(
+            name=c.name, metric=c.metric, comparator=c.comparator, target=c.target,
+            actual=_fmt(actual), gate=c.gate, status=status,
+            detail=f"actual {_fmt(actual)} vs {c.comparator} {c.target}",
+        ))
+    return checks
+
+
+def _compare(actual: float, comparator: str, target: str) -> bool:
+    if comparator == "between":
+        m = re.search(r"(-?\d+(?:\.\d+)?)\s*-\s*(-?\d+(?:\.\d+)?)", target or "")
+        if not m:
+            return True  # unparseable target -> don't fail the set
+        lo, hi = float(m.group(1)), float(m.group(2))
+        return lo <= actual <= hi
+    t = _first_num(target)
+    if t is None:
+        return True
+    if comparator == ">=":
+        return actual >= t
+    if comparator == "<=":
+        return actual <= t
+    if comparator == ">":
+        return actual > t
+    if comparator == "<":
+        return actual < t
+    if comparator in {"==", "="}:
+        return abs(actual - t) < 1e-9
+    return actual >= t
+
+
+def _first_num(text: str) -> float | None:
+    m = re.search(r"-?\d+(?:\.\d+)?", text or "")
+    return float(m.group()) if m else None
+
+
+def _fmt(v: float) -> str:
+    return str(int(v)) if float(v).is_integer() else str(round(v, 1))
 
 
 def _cluster_duplicates(findings: list[Finding]) -> list[DuplicateCluster]:

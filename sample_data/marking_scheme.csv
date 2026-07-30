@@ -1,0 +1,7 @@
+criterion,metric,comparator,target,gate
+At least 30% higher-order (Apply+) questions,higher_order_pct,>=,30,warn
+No out-of-scope questions,out_of_scope_count,==,0,fail
+No verbatim lifts from the slides,verbatim_lift_count,==,0,fail
+Easy questions at most 50% of the set,easy_pct,<=,50,warn
+No single answer key over 40% share,max_key_share_pct,<=,40,warn
+Every question maps to a Course Outcome (CO),co_mapping,,,info

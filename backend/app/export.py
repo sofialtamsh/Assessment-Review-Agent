@@ -82,6 +82,16 @@ def export_report_markdown(report: SetReport, findings: list[Finding],
     if gaps:
         a(f"### Coverage gaps (zero questions): {', '.join(gaps)}")
 
+    if report.rubric_applied:
+        a("\n## Marking-scheme compliance")
+        if report.rubric_compliance:
+            for c in report.rubric_compliance:
+                detail = ("review manually" if c.status == "manual"
+                          else f"{c.actual} vs {c.comparator} {c.target}")
+                a(f"- **{c.status.upper()}** — {c.name} ({detail})")
+        else:
+            a("- A written rubric guided the review agents (no structured criteria).")
+
     a("\n## Per-question findings\n")
     by_q: dict[str, list[Finding]] = {}
     for f in findings:

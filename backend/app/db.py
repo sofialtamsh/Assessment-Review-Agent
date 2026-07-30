@@ -25,6 +25,9 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
         "mcq_doc_url": "TEXT",
         "quiz_doc_url": "TEXT",
         "prepared_sets": "JSON",
+        "rubric_text": "TEXT",
+        "rubric_criteria": "JSON",
+        "rubric_source": "TEXT",
     },
     "findings": {
         "related_ids": "JSON",

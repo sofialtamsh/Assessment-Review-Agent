@@ -80,8 +80,12 @@ def build_graph(ctx: GraphContext):
                     "errors": [PhaseError(phase="phase6_judge", message=str(e))]}
 
     def report(state: ReviewState) -> dict:
-        rpt = build_report(state.get("session_id", ""), state["questions"],
-                           state.get("findings", []), state.get("judgments", []))
+        from .. import store
+        session_id = state.get("session_id", "")
+        rubric = store.get_rubric(session_id) if session_id else None
+        rpt = build_report(session_id, state["questions"],
+                           state.get("findings", []), state.get("judgments", []),
+                           rubric=rubric)
         return {"set_report": rpt, "current_phase": "report"}
 
     g.add_node("phase1_precheck", phase1)

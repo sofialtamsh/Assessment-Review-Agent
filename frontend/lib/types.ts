@@ -62,6 +62,25 @@ export interface SetReport {
   subtopic_coverage: Record<string, number>;
   over_tested_subtopics: string[];
   scenario_vs_recall_ratio: number;
+  rubric_applied?: boolean;
+  rubric_compliance?: RubricCheck[];
+}
+
+export interface RubricCheck {
+  name: string;
+  metric: string;
+  comparator: string;
+  target: string;
+  actual: string;
+  gate: "fail" | "warn" | "info";
+  status: "pass" | "warn" | "fail" | "manual";
+  detail: string;
+}
+
+export interface Rubric {
+  text: string;
+  criteria: unknown[];
+  source: string;
 }
 
 export interface PhaseCost {
@@ -109,6 +128,7 @@ export interface ReportResponse {
   questions: QuestionRow[];
   set_findings: Finding[];
   report: SetReport | null;
+  rubric: Rubric | null;
   phase_summary: PhaseSummary[];
 }
 

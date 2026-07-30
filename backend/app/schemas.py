@@ -127,6 +127,47 @@ class DuplicateCluster(BaseModel):
     detail: str = ""
 
 
+# --------------------------------------------------------------------------- #
+# Marking scheme / rubric (per-evaluation review criteria)
+# --------------------------------------------------------------------------- #
+GateLevel = Literal["fail", "warn", "info"]
+
+
+class RubricCriterion(BaseModel):
+    """One structured marking-scheme criterion, from the uploaded criteria sheet.
+
+    `metric` is a normalized key (e.g. 'higher_order_pct') that the deterministic
+    checker knows how to compute; an unknown/blank metric is guidance-only ('manual').
+    """
+    name: str
+    metric: str = ""                # normalized metric key ("" = manual/guidance-only)
+    comparator: str = ">="          # >= <= == between min max all none
+    target: str = ""                # "30", "40-50", or free text
+    gate: GateLevel = "warn"        # fail = block, warn = flag, info = note
+    weight: float = 1.0
+    note: str = ""                  # original criterion text, for display
+
+
+class RubricCheck(BaseModel):
+    """Result of evaluating one criterion against the reviewed set."""
+    name: str
+    metric: str = ""
+    comparator: str = ""
+    target: str = ""
+    actual: str = ""
+    gate: GateLevel = "warn"
+    status: Literal["pass", "warn", "fail", "manual"] = "manual"
+    detail: str = ""
+
+
+class Rubric(BaseModel):
+    """A marking scheme attached to an evaluation: free-text guidance + structured
+    criteria + a provenance label."""
+    text: str = ""
+    criteria: list[RubricCriterion] = Field(default_factory=list)
+    source: str = ""
+
+
 class SetReport(BaseModel):
     session_id: str
     total_questions: int = 0
@@ -141,6 +182,9 @@ class SetReport(BaseModel):
     subtopic_coverage: dict[str, int] = Field(default_factory=dict)   # 0 = gap
     over_tested_subtopics: list[str] = Field(default_factory=list)
     scenario_vs_recall_ratio: float = 0.0
+    # marking-scheme compliance (empty when no rubric was attached)
+    rubric_applied: bool = False
+    rubric_compliance: list[RubricCheck] = Field(default_factory=list)
 
 
 # --------------------------------------------------------------------------- #

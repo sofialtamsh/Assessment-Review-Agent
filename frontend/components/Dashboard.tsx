@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { bulkApprove, exportUrl, getReport, listInstructions, reportExportUrl } from "@/lib/api";
-import type { Instruction, PhaseSummary, QuestionRow, ReportResponse } from "@/lib/types";
+import type {
+  Instruction,
+  PhaseSummary,
+  QuestionRow,
+  ReportResponse,
+  Rubric,
+  RubricCheck,
+} from "@/lib/types";
 import { BarChart, Donut } from "./charts";
 import FeedbackPanel from "./FeedbackPanel";
 import QuestionDrawer from "./QuestionDrawer";
@@ -158,6 +165,10 @@ export default function Dashboard({ runId }: { runId: string }) {
           sub="higher-order vs recall"
         />
       </section>
+
+      {(data.rubric || report?.rubric_applied) && (
+        <RubricPanel rubric={data.rubric} checks={report?.rubric_compliance || []} />
+      )}
 
       <section className="grid gap-4 md:grid-cols-2">
         <div className="card">
@@ -350,6 +361,69 @@ const COST_LABELS: Record<string, string> = {
   edit_recheck: "Edit re-review",
 };
 const HUMAN_KEYS = new Set(["regeneration", "edit_recheck", "phase7_fixer"]);
+
+const RUBRIC_STATUS: Record<string, { label: string; cls: string }> = {
+  pass: { label: "PASS", cls: "bg-emerald-50 text-emerald-700" },
+  warn: { label: "WARN", cls: "bg-amber-50 text-amber-700" },
+  fail: { label: "FAIL", cls: "bg-rose-50 text-rose-700" },
+  manual: { label: "MANUAL", cls: "bg-black/[0.06] text-black/50" },
+};
+
+function RubricPanel({ rubric, checks }: { rubric: Rubric | null; checks: RubricCheck[] }) {
+  const fails = checks.filter((c) => c.status === "fail").length;
+  const warns = checks.filter((c) => c.status === "warn").length;
+  return (
+    <section className="card">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="label">Marking-scheme compliance</span>
+        {rubric?.source && <span className="text-xs text-black/40">· {rubric.source}</span>}
+        <span className="ml-auto text-sm">
+          {fails > 0 ? (
+            <span className="chip bg-rose-50 text-rose-700">{fails} failing</span>
+          ) : (
+            <span className="chip bg-emerald-50 text-emerald-700">no hard failures</span>
+          )}
+          {warns > 0 && <span className="ml-1 chip bg-amber-50 text-amber-700">{warns} warnings</span>}
+        </span>
+      </div>
+
+      {checks.length > 0 ? (
+        <div className="mt-3 divide-y divide-black/[0.05]">
+          {checks.map((c, i) => {
+            const s = RUBRIC_STATUS[c.status] || RUBRIC_STATUS.manual;
+            return (
+              <div key={i} className="flex items-center gap-3 py-2 text-sm">
+                <span className={`chip ${s.cls} shrink-0`}>{s.label}</span>
+                <span className="flex-1 text-black/70">{c.name}</span>
+                <span className="tabular-nums text-xs text-black/45">
+                  {c.status === "manual"
+                    ? "review manually"
+                    : `${c.actual} vs ${c.comparator} ${c.target}`}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="mt-2 text-sm text-black/45">
+          A written rubric was applied to the review agents; no structured pass/fail
+          criteria were provided.
+        </p>
+      )}
+
+      {rubric?.text && (
+        <details className="mt-3">
+          <summary className="cursor-pointer text-xs font-medium text-black/50">
+            View marking scheme
+          </summary>
+          <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap rounded-lg bg-black/[0.03] p-3 text-xs text-black/70">
+            {rubric.text}
+          </pre>
+        </details>
+      )}
+    </section>
+  );
+}
 
 function CostPanel({ data }: { data: ReportResponse }) {
   const cost = data.run.cost;

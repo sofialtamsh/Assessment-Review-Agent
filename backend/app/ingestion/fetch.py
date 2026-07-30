@@ -218,6 +218,28 @@ def fetch_questions(session_id: str, url: str, source_set: str,
     return parse_mcq_text(text, session_id, source_set, default_topic=default_topic)
 
 
+def fetch_rubric(url: str, timeout: float = 45.0) -> "Rubric":
+    """Fetch a marking scheme from a link, choosing the parser by link type:
+      * a Google Doc            -> written rubric text
+      * a Google Sheet / .xlsx  -> structured criteria sheet
+      * a direct .pdf/.txt/.md  -> written rubric text
+    """
+    from .rubric import rubric_from_bytes, rubric_from_text
+
+    url = (url or "").strip()
+    if _GDOC.search(url):
+        return rubric_from_text(fetch_doc_text(url, timeout), source=url)
+    if looks_like_spreadsheet_source(url):
+        data = fetch_spreadsheet_bytes(url, timeout, what="marking scheme")
+        fname = "rubric.xlsx" if _GSHEET.search(url) else (
+            url.split("?")[0].rstrip("/").split("/")[-1] or "rubric.xlsx")
+        return rubric_from_bytes(data, fname, source=url)
+    resp = httpx.get(url, timeout=timeout, follow_redirects=True)
+    resp.raise_for_status()
+    fname = url.split("?")[0].rstrip("/").split("/")[-1] or "rubric.txt"
+    return rubric_from_bytes(resp.content, fname, source=url)
+
+
 def _download_drive_file(url: str, timeout: float = 45.0) -> bytes:
     """Download a Google-Drive-hosted file (or any direct URL) as bytes."""
     m = _GDRIVE_FILE.search(url) or _GDRIVE_UC.search(url)

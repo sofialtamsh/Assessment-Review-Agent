@@ -178,6 +178,44 @@ def _fetch_eval_content(eval_id: str, rows: list) -> tuple[list, list[str]]:
     return all_chunks, warnings
 
 
+def _attach_rubric(eval_id: str, warnings: list[str], *, text: str = "", url: str = "",
+                   file_bytes: bytes | None = None, filename: str = "") -> None:
+    """Assemble a marking scheme from any of pasted text / uploaded file / link and
+    attach it to the evaluation. Fetch/parse failures are non-fatal (warnings)."""
+    from .ingestion.fetch import fetch_rubric
+    from .ingestion.rubric import rubric_from_bytes, rubric_from_text
+    from .schemas import Rubric
+
+    parts: list = []
+    if text and text.strip():
+        parts.append(rubric_from_text(text, source="pasted"))
+    if file_bytes:
+        try:
+            parts.append(rubric_from_bytes(file_bytes, filename or "rubric", source=filename))
+        except Exception as e:  # noqa: BLE001
+            warnings.append(_source_error("marking scheme file", e, filename))
+    if url and url.strip():
+        try:
+            parts.append(fetch_rubric(url.strip()))
+        except PermissionError as e:
+            warnings.append(_source_error("marking scheme", e, url))
+        except Exception as e:  # noqa: BLE001
+            warnings.append(_source_error("Could not fetch marking scheme", e, url))
+
+    parts = [p for p in parts if p and (p.text or p.criteria)]
+    if not parts:
+        return
+    combined = Rubric(
+        text="\n\n".join(p.text for p in parts if p.text).strip(),
+        criteria=[c for p in parts for c in p.criteria],
+        source=" + ".join(p.source for p in parts if p.source),
+    )
+    store.save_rubric(eval_id, combined)
+    audit.log("rubric_attached", detail={
+        "eval_id": eval_id, "criteria": len(combined.criteria),
+        "has_text": bool(combined.text), "source": combined.source[:120]})
+
+
 async def _finalize_evaluation(eval_id: str, unit_ids: list[str], all_chunks: list,
                                all_questions: list, warnings: list[str]) -> dict:
     """Persist the assembled evaluation, kick off the review, return the run payload."""
@@ -219,6 +257,43 @@ def _parse_eval_upload(data: bytes, filename: str, eval_id: str, title: str) -> 
     return qs
 
 
+def _questions_from_url(eval_id: str, questions_url: str, title: str) -> list:
+    """Fetch the whole evaluation from one link (a Doc/Slides link, MCQ zip, or Sheet)."""
+    from .ingestion.fetch import fetch_questions
+
+    try:
+        return fetch_questions(eval_id, questions_url, "examination", default_topic=title)
+    except PermissionError as e:
+        raise HTTPException(403, _source_error("evaluation document", e, questions_url))
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(
+            502, _source_error("Could not fetch the evaluation document", e, questions_url))
+
+
+def _assemble_unit_questions(eval_id: str, rows: list, source_set: str,
+                             warnings: list[str]) -> list:
+    """Assemble one evaluation set from each selected unit's chosen document."""
+    from .ingestion.fetch import fetch_questions
+
+    label = _SET_LABEL.get(source_set, source_set)
+    all_questions: list = []
+    for r in rows:
+        doc_url = r.mcq_doc_url if source_set == "mcq_assignment" else r.quiz_doc_url
+        if not doc_url:
+            warnings.append(f"{r.unit}: no {label} document")
+            continue
+        try:
+            qs = fetch_questions(eval_id, doc_url, "examination", default_topic=r.unit)
+        except Exception as e:  # noqa: BLE001
+            warnings.append(f"{r.unit}: " + _source_error(label, e, doc_url))
+            continue
+        for q in qs:
+            q.question_id = f"{r.session_id[:6]}_{q.question_id}"
+            q.subtopics = list(r.subtopics or [])[:3]
+        all_questions += qs
+    return all_questions
+
+
 @app.post("/units/evaluation")
 async def create_evaluation(body: dict = Body(...)) -> dict:
     """Build a single evaluation set spanning MULTIPLE units and review it as one.
@@ -227,8 +302,6 @@ async def create_evaluation(body: dict = Body(...)) -> dict:
     combined, so duplicate/scope/coverage checks run ACROSS the whole exam.
     `set` chooses the question source per unit ('mcq_assignment' or 'in_class_quiz').
     """
-    from .ingestion.fetch import fetch_questions
-
     unit_ids = body.get("unit_ids") or []
     source_set = body.get("set", "mcq_assignment")
     questions_url = (body.get("questions_url") or "").strip()  # existing eval doc/link
@@ -238,69 +311,64 @@ async def create_evaluation(body: dict = Body(...)) -> dict:
     eval_id = _eval_id_for(unit_ids, source_set + ("|url" if questions_url else ""))
     _save_eval_session(eval_id, title, rows)
     all_chunks, warnings = _fetch_eval_content(eval_id, rows)
+    _attach_rubric(eval_id, warnings,
+                   text=body.get("rubric_text", ""), url=body.get("rubric_url", ""))
 
-    all_questions: list = []
     if questions_url:
-        # review the evaluation the user already has (a Doc/Slides link or an MCQ zip)
-        try:
-            all_questions = fetch_questions(eval_id, questions_url, "examination",
-                                            default_topic=title)
-        except PermissionError as e:
-            raise HTTPException(403, _source_error("evaluation document", e, questions_url))
-        except Exception as e:  # noqa: BLE001
-            raise HTTPException(
-                502, _source_error("Could not fetch the evaluation document", e, questions_url))
+        all_questions = _questions_from_url(eval_id, questions_url, title)
     else:
-        # assemble one set from each selected unit's chosen document
-        label = _SET_LABEL.get(source_set, source_set)
-        for r in rows:
-            doc_url = r.mcq_doc_url if source_set == "mcq_assignment" else r.quiz_doc_url
-            if not doc_url:
-                warnings.append(f"{r.unit}: no {label} document")
-                continue
-            try:
-                qs = fetch_questions(eval_id, doc_url, "examination", default_topic=r.unit)
-            except Exception as e:  # noqa: BLE001
-                warnings.append(f"{r.unit}: " + _source_error(label, e, doc_url))
-                continue
-            for q in qs:
-                q.question_id = f"{r.session_id[:6]}_{q.question_id}"
-                q.subtopics = list(r.subtopics or [])[:3]
-            all_questions += qs
+        all_questions = _assemble_unit_questions(eval_id, rows, source_set, warnings)
 
     return await _finalize_evaluation(eval_id, unit_ids, all_chunks, all_questions, warnings)
 
 
 @app.post("/units/evaluation/upload")
 async def create_evaluation_upload(
-    file: UploadFile = File(...),
     unit_ids: str = Form(...),
+    file: UploadFile | None = File(None),
+    questions_url: str = Form(""),
+    set: str = Form("mcq_assignment"),
     title: str = Form(""),
+    rubric_file: UploadFile | None = File(None),
+    rubric_text: str = Form(""),
+    rubric_url: str = Form(""),
 ) -> dict:
-    """Review an UPLOADED evaluation (one combined exam file) against the units it covers.
+    """Multipart evaluation entry: like /units/evaluation but able to carry uploaded
+    FILES (an exam file and/or a marking-scheme file).
 
-    Use this when the final multi-unit exam isn't a row/link in the mastersheet: upload
-    the exam file (.zip / .md / .txt / .csv / .xlsx / .json) and tick the units it's based
-    on. Their slides + tutorials are combined as the scope basis, exactly like the linked
-    evaluation flow — only the questions come from the file instead of a link.
+    Questions come from (in order): the uploaded exam `file`, else `questions_url`, else
+    assembled from each unit's `set` document. A marking scheme (rubric doc / criteria
+    sheet / link / pasted text) can be attached; the agents must follow it and it drives
+    deterministic compliance checks. Their slides + tutorials form the scope basis.
     """
     ids = [u.strip() for u in unit_ids.split(",") if u.strip()]
     title = (title or "").strip() or f"Evaluation ({len(ids)} units)"
+    questions_url = (questions_url or "").strip()
     rows = _resolve_eval_units(ids)
 
     eval_id = _eval_id_for(ids, "upload")
     _save_eval_session(eval_id, title, rows)
     all_chunks, warnings = _fetch_eval_content(eval_id, rows)
+    rubric_bytes = await rubric_file.read() if rubric_file is not None else None
+    _attach_rubric(eval_id, warnings, text=rubric_text, url=rubric_url,
+                   file_bytes=rubric_bytes,
+                   filename=(rubric_file.filename if rubric_file is not None else ""))
 
-    data = await file.read()
-    try:
-        questions = _parse_eval_upload(data, file.filename or "", eval_id, title)
-    except Exception as e:  # noqa: BLE001
-        raise HTTPException(
-            422, f"Could not parse the uploaded evaluation file '{file.filename}': {e}")
-    if not questions:
-        raise HTTPException(422, "Parsed the file but found no MCQs. Check the format "
-                            "(a .zip LMS export, a Google-Doc .md/.txt, or a CSV/XLSX/JSON set).")
+    if file is not None:
+        data = await file.read()
+        try:
+            questions = _parse_eval_upload(data, file.filename or "", eval_id, title)
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(
+                422, f"Could not parse the uploaded evaluation file '{file.filename}': {e}")
+        if not questions:
+            raise HTTPException(422, "Parsed the file but found no MCQs. Check the format "
+                                "(a .zip LMS export, a Google-Doc .md/.txt, or a CSV/XLSX/JSON set).")
+    elif questions_url:
+        questions = _questions_from_url(eval_id, questions_url, title)
+    else:
+        questions = _assemble_unit_questions(eval_id, rows, set, warnings)
+
     return await _finalize_evaluation(eval_id, ids, all_chunks, questions, warnings)
 
 
@@ -574,6 +642,7 @@ def get_report(run_id: str) -> dict:
         "questions": q_out,
         "set_findings": findings_by_q.get("__set__", []),
         "report": row.report,
+        "rubric": store.get_rubric(row.session_id),
         "phase_summary": build_phase_summary(findings, list(judgments.values())),
     }
 

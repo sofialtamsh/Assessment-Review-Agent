@@ -103,6 +103,30 @@ def get_batch(batch_id: str) -> dict | None:
                 "items": list(r.items or []), "created_at": r.created_at.isoformat()}
 
 
+def save_rubric(session_id: str, rubric) -> None:
+    """Attach a marking scheme (Rubric) to a session/evaluation row."""
+    with get_session() as db:
+        r = db.get(SessionRow, session_id) or SessionRow(session_id=session_id)
+        r.rubric_text = rubric.text or None
+        r.rubric_criteria = [c.model_dump() for c in rubric.criteria]
+        r.rubric_source = rubric.source or None
+        db.add(r)
+        db.commit()
+
+
+def get_rubric(session_id: str) -> dict | None:
+    """Return {text, criteria, source} for a session, or None if no rubric attached."""
+    with get_session() as db:
+        r = db.get(SessionRow, session_id)
+        if not r:
+            return None
+        text = r.rubric_text or ""
+        criteria = list(r.rubric_criteria or [])
+        if not text and not criteria:
+            return None
+        return {"text": text, "criteria": criteria, "source": r.rubric_source or ""}
+
+
 def mark_prepared(unit_id: str, source_set: str) -> None:
     with get_session() as db:
         r = db.get(SessionRow, unit_id)

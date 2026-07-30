@@ -89,6 +89,11 @@ export default function UploadRun() {
   const [evalTitle, setEvalTitle] = useState("");
   const [questionsUrl, setQuestionsUrl] = useState("");
   const [evalFile, setEvalFile] = useState<File | null>(null);
+  // marking scheme / rubric for this evaluation (file and/or link and/or pasted text)
+  const [rubricFile, setRubricFile] = useState<File | null>(null);
+  const [rubricUrl, setRubricUrl] = useState("");
+  const [rubricText, setRubricText] = useState("");
+  const [showRubric, setShowRubric] = useState(false);
 
   // manual (advanced) flow
   const [showManual, setShowManual] = useState(false);
@@ -228,9 +233,12 @@ export default function UploadRun() {
     try {
       // uploaded exam file wins; else a pasted link; else assemble from the units' docs
       // evaluations always assemble from the MCQ assignment (no in-class variant)
-      const r = evalFile
-        ? await createEvaluationUpload(evalFile, evalUnits, evalTitle)
-        : await createEvaluation(evalUnits, "mcq_assignment", evalTitle, questionsUrl);
+      const rubric = { text: rubricText, url: rubricUrl, file: rubricFile };
+      // any uploaded file (exam and/or marking scheme) needs the multipart endpoint
+      const r =
+        evalFile || rubricFile
+          ? await createEvaluationUpload(evalUnits, evalFile, evalTitle, questionsUrl, rubric)
+          : await createEvaluation(evalUnits, "mcq_assignment", evalTitle, questionsUrl, rubric);
       if (r.warnings?.length) setMsg(r.warnings.join(" · "));
       attachStream(r.run_id);
     } catch (e: any) {
@@ -273,6 +281,19 @@ export default function UploadRun() {
 
   const selected = units.find((u) => u.unit_id === unitId);
   const busy = step === "uploading" || step === "preparing" || step === "running";
+
+  // Which units are selectable in the current mode/source (same rule the list uses).
+  const unitAvailable = (u: UnitInfo) =>
+    mode === "eval"
+      ? evalFile || questionsUrl
+        ? !!u.has_content
+        : !!u.has_mcq_assignment
+      : set === "mcq_assignment"
+      ? !!u.has_mcq_assignment
+      : !!u.has_in_class_quiz;
+  const availableUnitIds = units.filter(unitAvailable).map((u) => u.unit_id);
+  const allAvailableSelected =
+    availableUnitIds.length > 0 && availableUnitIds.every((id) => evalUnits.includes(id));
 
   return (
     <div className="space-y-8">
@@ -517,17 +538,99 @@ export default function UploadRun() {
                       : `Review all separately (${evalUnits.length})`}
                   </button>
                 </div>
+                {mode === "eval" && (
+                  <div className="rounded-xl border border-black/[0.06] bg-black/[0.015] p-3">
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between text-sm font-medium text-black/70"
+                      onClick={() => setShowRubric((v) => !v)}
+                    >
+                      <span>
+                        Marking scheme / criteria{" "}
+                        <span className="font-normal text-black/40">(optional)</span>
+                        {(rubricFile || rubricUrl || rubricText) && (
+                          <span className="ml-2 chip bg-accent-50 text-accent-700">attached</span>
+                        )}
+                      </span>
+                      <span className="text-black/40">{showRubric ? "−" : "+"}</span>
+                    </button>
+                    {showRubric && (
+                      <div className="mt-3 space-y-3">
+                        <p className="text-xs text-black/45">
+                          Tell the reviewers how to judge THIS set: a rubric document (criteria the
+                          agents must follow) and/or a structured criteria sheet (.csv/.xlsx with
+                          columns like criterion / metric / comparator / target / gate) that also
+                          drives pass/fail compliance checks. Provide a file, a link, or paste text.
+                        </p>
+                        <div className="flex flex-wrap items-end gap-3">
+                          <div>
+                            <div className="label mb-1">Upload marking scheme</div>
+                            <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm hover:border-black/20">
+                              <input
+                                type="file"
+                                className="hidden"
+                                onChange={(e) => e.target.files?.[0] && setRubricFile(e.target.files[0])}
+                              />
+                              {rubricFile ? (
+                                <span className="chip bg-accent-50 text-accent-700">✓ {rubricFile.name}</span>
+                              ) : (
+                                <span className="text-black/40">.csv / .xlsx / .md / .txt / .pdf</span>
+                              )}
+                            </label>
+                          </div>
+                          {rubricFile && (
+                            <button
+                              className="btn-ghost px-2 py-1 text-xs"
+                              onClick={() => setRubricFile(null)}
+                            >
+                              Clear
+                            </button>
+                          )}
+                          <input
+                            className="w-72 rounded-xl border border-black/10 px-3 py-2 text-sm"
+                            placeholder="…or paste marking-scheme Doc/Sheet link"
+                            value={rubricUrl}
+                            onChange={(e) => setRubricUrl(e.target.value)}
+                          />
+                        </div>
+                        <textarea
+                          className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm"
+                          rows={3}
+                          placeholder="…or paste the criteria directly (e.g. 'Every question maps to a CO; ≥30% higher-order; no verbatim lifts; easy ≤50%')"
+                          value={rubricText}
+                          onChange={(e) => setRubricText(e.target.value)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className="flex items-center justify-between px-1">
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-accent-700 hover:underline disabled:opacity-40 disabled:no-underline"
+                    disabled={availableUnitIds.length === 0}
+                    onClick={() =>
+                      setEvalUnits(allAvailableSelected ? [] : availableUnitIds)
+                    }
+                  >
+                    {allAvailableSelected
+                      ? "Clear all"
+                      : `Select all available (${availableUnitIds.length})`}
+                  </button>
+                  {evalUnits.length > 0 && !allAvailableSelected && (
+                    <button
+                      type="button"
+                      className="text-xs text-black/40 hover:text-black/70"
+                      onClick={() => setEvalUnits([])}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
                 <div className="max-h-64 overflow-y-auto rounded-xl border border-black/[0.06] p-2">
                   {units.map((u) => {
                     const checked = evalUnits.includes(u.unit_id);
-                    const avail =
-                      mode === "eval"
-                        ? evalFile || questionsUrl
-                          ? u.has_content // exam supplied; unit only needs content
-                          : u.has_mcq_assignment // assembled from the MCQ assignment
-                        : set === "mcq_assignment"
-                        ? u.has_mcq_assignment
-                        : u.has_in_class_quiz;
+                    const avail = unitAvailable(u);
                     return (
                       <label
                         key={u.unit_id}

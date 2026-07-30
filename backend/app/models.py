@@ -33,6 +33,11 @@ class SessionRow(SQLModel, table=True):
     mcq_doc_url: Optional[str] = None
     quiz_doc_url: Optional[str] = None
     prepared_sets: list = Field(default_factory=list, sa_column=Column(JSON))
+    # marking scheme / rubric (used by evaluation runs): written guidance + structured
+    # criteria + a provenance label. Empty on ordinary units/sessions.
+    rubric_text: Optional[str] = None
+    rubric_criteria: list = Field(default_factory=list, sa_column=Column(JSON))
+    rubric_source: Optional[str] = None
 
 
 class QuestionRow(SQLModel, table=True):

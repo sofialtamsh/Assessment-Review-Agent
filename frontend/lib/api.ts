@@ -88,30 +88,50 @@ export async function prepareAndRun(
   );
 }
 
+export interface RubricInput {
+  text?: string;
+  url?: string;
+  file?: File | null;
+}
+
 export async function createEvaluation(
   unitIds: string[],
   set: string,
   title?: string,
-  questionsUrl?: string
+  questionsUrl?: string,
+  rubric?: RubricInput
 ): Promise<{ run_id: string; status: string; units: number; questions: number; warnings: string[] }> {
   return j(
     await safeFetch("/units/evaluation", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ unit_ids: unitIds, set, title, questions_url: questionsUrl }),
+      body: JSON.stringify({
+        unit_ids: unitIds,
+        set,
+        title,
+        questions_url: questionsUrl,
+        rubric_text: rubric?.text || "",
+        rubric_url: rubric?.url || "",
+      }),
     })
   );
 }
 
 export async function createEvaluationUpload(
-  file: File,
   unitIds: string[],
-  title?: string
+  examFile: File | null,
+  title?: string,
+  questionsUrl?: string,
+  rubric?: RubricInput
 ): Promise<{ run_id: string; status: string; units: number; questions: number; warnings: string[] }> {
   const fd = new FormData();
-  fd.append("file", file);
   fd.append("unit_ids", unitIds.join(","));
+  if (examFile) fd.append("file", examFile);
+  if (questionsUrl) fd.append("questions_url", questionsUrl);
   if (title) fd.append("title", title);
+  if (rubric?.text) fd.append("rubric_text", rubric.text);
+  if (rubric?.url) fd.append("rubric_url", rubric.url);
+  if (rubric?.file) fd.append("rubric_file", rubric.file);
   return j(await safeFetch("/units/evaluation/upload", { method: "POST", body: fd }));
 }
 

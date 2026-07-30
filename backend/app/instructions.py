@@ -65,8 +65,11 @@ def instructions_for(phase: str, session_id: str | None = None) -> list[str]:
 
 
 def prompt_for(phase: str, session_id: str | None = None) -> str:
-    """Base prompt for a phase + any reviewer instructions appended."""
+    """Base prompt for a phase + the evaluation's marking scheme + reviewer instructions."""
     base = load_prompt(phase)
+    rubric = rubric_block(session_id)
+    if rubric:
+        base = f"{base}\n\n{rubric}"
     extra = instructions_for(phase, session_id)
     if not extra:
         return base
@@ -74,6 +77,28 @@ def prompt_for(phase: str, session_id: str | None = None) -> str:
     return (
         f"{base}\n\n## Reviewer instructions (follow these — they override defaults "
         f"on conflict)\n{lines}\n"
+    )
+
+
+def rubric_block(session_id: str | None) -> str:
+    """The evaluation's marking scheme, formatted as an authoritative prompt section.
+
+    Empty when the session has no rubric attached (ordinary units/sessions).
+    """
+    if not session_id:
+        return ""
+    from . import store  # lazy: avoids an import cycle at module load
+
+    rubric = store.get_rubric(session_id)
+    if not rubric:
+        return ""
+    text = (rubric.get("text") or "").strip()
+    if not text:
+        return ""
+    return (
+        "## Marking scheme (AUTHORITATIVE — evaluate every question against these "
+        "criteria; they override the defaults on conflict)\n"
+        f"{text}\n"
     )
 
 
