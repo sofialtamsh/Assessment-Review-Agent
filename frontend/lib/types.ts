@@ -102,6 +102,8 @@ export interface RunInfo {
   run_id: string;
   session_id: string;
   source_set: string;
+  title?: string;
+  reviewer?: string;
   status: string;
   current_phase: string;
   completed_phases: string[];

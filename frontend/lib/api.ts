@@ -405,6 +405,12 @@ export async function deleteInstruction(id: number): Promise<any> {
   return j(await safeFetch(`/instructions/${id}`, { method: "DELETE" }));
 }
 
+export async function archiveRun(
+  runId: string
+): Promise<{ enabled: boolean; urls?: string[]; message?: string }> {
+  return j(await safeFetch(`/runs/${runId}/archive`, { method: "POST" }));
+}
+
 export function streamUrl(runId: string): string {
   return `${API_BASE}/runs/${runId}/stream`;
 }

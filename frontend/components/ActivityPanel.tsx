@@ -20,7 +20,10 @@ const SET_LABEL: Record<string, string> = {
 };
 
 function timeAgo(iso: string): string {
-  const secs = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+  // backend timestamps are UTC; if the string carries no timezone (SQLite round-trip
+  // drops it), treat it as UTC so we don't skew by the viewer's offset.
+  const utc = /([zZ]|[+-]\d\d:?\d\d)$/.test(iso) ? iso : `${iso}Z`;
+  const secs = Math.max(0, (Date.now() - new Date(utc).getTime()) / 1000);
   if (secs < 60) return "just now";
   if (secs < 3600) return `${Math.floor(secs / 60)} min ago`;
   if (secs < 86400) return `${Math.floor(secs / 3600)} hr ago`;

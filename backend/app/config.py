@@ -52,6 +52,10 @@ class Settings(BaseModel):
     embeddings: EmbeddingsConfig = EmbeddingsConfig()
     thresholds: Thresholds = Thresholds()
     db_path: str = "review.db"
+    # a full SQLAlchemy URL (e.g. a hosted Postgres) — set via DATABASE_URL to make
+    # review data DURABLE across deploys/restarts. When unset, we use a local SQLite
+    # file (fine for dev, but WIPED on ephemeral hosts like Render's free tier).
+    database_url: str | None = None
 
     # secrets from env, never from yaml
     openrouter_api_key: str | None = None
@@ -59,6 +63,13 @@ class Settings(BaseModel):
     # lightweight shared-password login (identity/attribution, not hard security)
     shared_password: str = "admin@123"
     auth_secret: str = "arp-dev-secret"
+    # external archive of reviewed content (github now, s3 later). Credentials via ENV.
+    archive_backend: str = "none"        # none | github | s3
+    archive_dir: str = "reviews"
+    github_token: str | None = None
+    github_repo: str | None = None       # owner/name
+    github_branch: str = "main"
+    s3_bucket: str | None = None
 
     def model_for(self, phase: str) -> str:
         return self.models.get(phase, "anthropic/claude-sonnet-4.5")
@@ -68,6 +79,15 @@ class Settings(BaseModel):
 
     @property
     def db_url(self) -> str:
+        # A hosted database (Postgres) wins — this is what makes data permanent.
+        if self.database_url:
+            url = self.database_url.strip()
+            # normalize the postgres://... form some providers hand out
+            if url.startswith("postgres://"):
+                url = "postgresql+psycopg2://" + url[len("postgres://"):]
+            elif url.startswith("postgresql://"):
+                url = "postgresql+psycopg2://" + url[len("postgresql://"):]
+            return url
         path = self.db_path
         if not os.path.isabs(path):
             path = str(BACKEND_DIR / path)
@@ -98,6 +118,13 @@ def get_settings() -> Settings:
     settings.voyage_api_key = os.getenv("VOYAGE_API_KEY")
     settings.shared_password = os.getenv("ARP_SHARED_PASSWORD", settings.shared_password)
     settings.auth_secret = os.getenv("ARP_AUTH_SECRET", settings.auth_secret)
+    settings.database_url = os.getenv("DATABASE_URL") or os.getenv("ARP_DATABASE_URL")
+    settings.archive_backend = os.getenv("ARCHIVE_BACKEND", settings.archive_backend)
+    settings.archive_dir = os.getenv("ARCHIVE_DIR", settings.archive_dir)
+    settings.github_token = os.getenv("GITHUB_TOKEN")
+    settings.github_repo = os.getenv("GITHUB_REPO")
+    settings.github_branch = os.getenv("GITHUB_BRANCH", settings.github_branch)
+    settings.s3_bucket = os.getenv("S3_BUCKET")
     if os.getenv("ARP_DB_PATH"):
         settings.db_path = os.environ["ARP_DB_PATH"]
     # Allow env to force the mock provider (handy for CI / no-key demos).

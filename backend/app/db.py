@@ -9,10 +9,15 @@ from sqlmodel import Session, SQLModel, create_engine
 from .config import get_settings
 
 _settings = get_settings()
+_db_url = _settings.db_url
+_is_sqlite = _db_url.startswith("sqlite")
+# check_same_thread is SQLite-only; pool_pre_ping keeps hosted Postgres connections
+# healthy across the free-tier's idle drops.
 engine = create_engine(
-    _settings.db_url,
+    _db_url,
     echo=False,
-    connect_args={"check_same_thread": False},
+    pool_pre_ping=not _is_sqlite,
+    connect_args={"check_same_thread": False} if _is_sqlite else {},
 )
 
 
@@ -47,7 +52,10 @@ def init_db() -> None:
 
 
 def _ensure_columns() -> None:
-    from sqlalchemy import text
+    # The self-healing shim below uses SQLite-specific PRAGMA/ALTER. On Postgres,
+    # create_all() already builds complete tables, so there's nothing to back-fill.
+    if not _is_sqlite:
+        return
 
     with engine.begin() as conn:
         for table, columns in _ADDED_COLUMNS.items():

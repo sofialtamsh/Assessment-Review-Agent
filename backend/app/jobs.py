@@ -126,19 +126,48 @@ class RunManager:
                          budget=budget.model_dump())
         # record a compact summary so a later reviewer is warned this was already reviewed
         if final_report is not None:
+            title = store.db_session_title(session_id)
             try:
                 store.save_review_summary(
                     run_id=run_id, session_id=session_id, source_set=source_set,
-                    title=store.db_session_title(session_id), reviewer=run.reviewer,
+                    title=title, reviewer=run.reviewer,
                     report=final_report, questions=questions)
             except Exception:  # noqa: BLE001 - summary is best-effort, never fail the run
                 pass
+            # archive the reviewed content to the external store (GitHub/S3), if configured
+            try:
+                self._archive_review(run_id, session_id, source_set, title,
+                                     run.reviewer, final_report, questions)
+            except Exception as e:  # noqa: BLE001 - archiving must never fail the run
+                audit.log("archive_failed", run_id=run_id, detail={"error": str(e)[:200]})
         self._publish(loop, run_id, {
             "type": "done", "status": status,
             "cost": self._cost_dump(cost), "budget": budget.model_dump(),
         })
         audit.log("run_completed", run_id=run_id, detail={"status": status})
         self._finish(run_id, loop)
+
+    def _archive_review(self, run_id: str, session_id: str, source_set: str, title: str,
+                        reviewer: str, report: dict, questions: list) -> None:
+        """Push the reviewed content to the configured external store (no-op if unset)."""
+        from . import export, storage
+
+        judgments = store.load_judgments(run_id)
+        record = {
+            "run_id": run_id, "session_id": session_id, "source_set": source_set,
+            "title": title, "reviewer": reviewer,
+            "archived_at": datetime.now(timezone.utc).isoformat(),
+            "report": report,
+            "questions": [q.model_dump() for q in questions],
+            "judgments": [j.model_dump() for j in judgments],
+            "findings": [f.model_dump() for f in store.load_findings(run_id)],
+        }
+        xlsx = export.export_review_xlsx(questions, judgments)
+        urls = storage.archive_review(
+            session_id=session_id, run_id=run_id, source_set=source_set, title=title,
+            reviewer=reviewer, record=record, xlsx=xlsx)
+        if urls:
+            audit.log("archived", run_id=run_id, detail={"urls": urls})
 
     # -- SSE pub/sub ------------------------------------------------------- #
     def _publish(self, loop, run_id: str, event: dict) -> None:

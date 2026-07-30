@@ -82,6 +82,27 @@ def export_cleaned_xlsx(questions: list[Question]) -> bytes:
     return out.getvalue()
 
 
+def export_review_xlsx(questions: list[Question],
+                       judgments: list[Judgment] | None = None) -> bytes:
+    """Like the approved export, but includes EVERY reviewed question with its verdict
+    (+ reason) in the Remarks column — used for the archived snapshot of a review."""
+    from openpyxl import Workbook
+
+    jmap = {j.question_id: j for j in (judgments or [])}
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "MCQs"
+    ws.append(_REVIEW_FIELDS)
+    for i, q in enumerate(questions, start=1):
+        row = _review_row(q, i)
+        j = jmap.get(q.question_id)
+        row[-1] = (f"{j.verdict}: {j.reason}".strip(": ").strip() if j else "")  # Remarks
+        ws.append(row)
+    out = io.BytesIO()
+    wb.save(out)
+    return out.getvalue()
+
+
 def export_report_markdown(report: SetReport, findings: list[Finding],
                            judgments: list[Judgment], questions: list[Question]) -> bytes:
     qmap = {q.question_id: q for q in questions}

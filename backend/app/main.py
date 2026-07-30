@@ -792,6 +792,7 @@ def get_phases(run_id: str) -> dict:
 def _run_dict(row: RunRow) -> dict:
     return {
         "run_id": row.run_id, "session_id": row.session_id, "source_set": row.source_set,
+        "title": store.db_session_title(row.session_id), "reviewer": row.reviewer,
         "status": row.status, "current_phase": row.current_phase,
         "completed_phases": list(row.completed_phases or []),
         "report": row.report, "cost": row.cost, "budget": row.budget,
@@ -961,6 +962,47 @@ def export_report(run_id: str, format: str = Query("md")) -> Response:
 @app.get("/runs/{run_id}/audit")
 def get_audit(run_id: str) -> dict:
     return {"log": audit.get_log(run_id=run_id)}
+
+
+@app.post("/runs/{run_id}/archive")
+def archive_run(run_id: str) -> dict:
+    """Push this review's current (post-approval) content to the external store
+    (GitHub/S3). Returns the written URLs, or {enabled: false} if not configured."""
+    from datetime import datetime, timezone
+
+    from . import export, storage
+
+    with get_session() as db:
+        row = db.get(RunRow, run_id)
+        if not row:
+            raise HTTPException(404, "run not found")
+    if not storage.get_backend().enabled():
+        return {"enabled": False,
+                "message": "No archive backend configured (set ARCHIVE_BACKEND=github)."}
+
+    questions = store.load_questions(row.session_id, row.source_set)
+    judgments = store.load_judgments(run_id)
+    statuses = {q.question_id: (store.get_question(q.question_id) or (q, "pending"))[1]
+                for q in questions}
+    title = store.db_session_title(row.session_id)
+    record = {
+        "run_id": run_id, "session_id": row.session_id, "source_set": row.source_set,
+        "title": title, "reviewer": row.reviewer,
+        "archived_at": datetime.now(timezone.utc).isoformat(),
+        "report": row.report,
+        "questions": [{**q.model_dump(), "status": statuses.get(q.question_id, "pending")}
+                      for q in questions],
+        "judgments": [j.model_dump() for j in judgments],
+    }
+    try:
+        urls = storage.archive_review(
+            session_id=row.session_id, run_id=run_id, source_set=row.source_set,
+            title=title, reviewer=row.reviewer, record=record,
+            xlsx=export.export_review_xlsx(questions, judgments))
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, f"Archive failed: {e}")
+    audit.log("archived_manual", run_id=run_id, detail={"urls": urls})
+    return {"enabled": True, "urls": urls}
 
 
 # --------------------------------------------------------------------------- #

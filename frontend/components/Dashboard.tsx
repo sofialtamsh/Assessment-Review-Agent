@@ -2,7 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { bulkApprove, exportUrl, getReport, listInstructions, reportExportUrl } from "@/lib/api";
+import {
+  archiveRun,
+  bulkApprove,
+  exportUrl,
+  getReport,
+  listInstructions,
+  reportExportUrl,
+} from "@/lib/api";
 import type {
   Instruction,
   PhaseSummary,
@@ -28,6 +35,17 @@ const BLOOM_COLORS: Record<string, string> = {
 const FILTERS = ["ALL", "APPROVE", "REVISE", "DELETE"] as const;
 type Filter = (typeof FILTERS)[number];
 
+const SET_TITLE: Record<string, string> = {
+  mcq_assignment: "MCQ Assignment Review",
+  in_class_quiz: "In-Class Quiz Review",
+  examination: "Evaluation Review",
+};
+const SET_LABEL: Record<string, string> = {
+  mcq_assignment: "MCQ assignment",
+  in_class_quiz: "in-class quiz",
+  examination: "evaluation",
+};
+
 export default function Dashboard({ runId }: { runId: string }) {
   const [data, setData] = useState<ReportResponse | null>(null);
   const [filter, setFilter] = useState<Filter>("ALL");
@@ -35,6 +53,22 @@ export default function Dashboard({ runId }: { runId: string }) {
   const [open, setOpen] = useState<QuestionRow | null>(null);
   const [instr, setInstr] = useState<Instruction[]>([]);
   const [err, setErr] = useState("");
+  const [archiveMsg, setArchiveMsg] = useState("");
+  const [archiving, setArchiving] = useState(false);
+
+  async function doArchive() {
+    setArchiving(true);
+    setArchiveMsg("");
+    try {
+      const r = await archiveRun(runId);
+      if (!r.enabled) setArchiveMsg(r.message || "Archiving is not configured.");
+      else setArchiveMsg(r.urls?.length ? `Archived ✓ (${r.urls.length} files)` : "Archived.");
+    } catch (e: any) {
+      setArchiveMsg(e.message || "Archive failed");
+    } finally {
+      setArchiving(false);
+    }
+  }
 
   const loadInstr = useCallback(async () => {
     try {
@@ -125,10 +159,16 @@ export default function Dashboard({ runId }: { runId: string }) {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Review Dashboard</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {SET_TITLE[data.run.source_set] || "Review"}
+          </h1>
           <p className="text-sm text-black/50">
-            Session <b>{data.run.session_id}</b> · {data.run.source_set} ·{" "}
+            <b>{data.run.title || data.run.session_id}</b> ·{" "}
+            {SET_LABEL[data.run.source_set] || data.run.source_set} ·{" "}
             <span className="capitalize">{data.run.status.replace("_", " ")}</span>
+            {data.run.reviewer && data.run.reviewer !== "unknown" && (
+              <> · reviewed by {data.run.reviewer}</>
+            )}
           </p>
         </div>
         <div className="ml-auto flex gap-2">
@@ -141,6 +181,9 @@ export default function Dashboard({ runId }: { runId: string }) {
           <a className="btn-ghost" href={exportUrl(runId, "csv")}>
             Approved CSV
           </a>
+          <button className="btn-ghost" onClick={doArchive} disabled={archiving}>
+            {archiving ? "Archiving…" : "Archive to GitHub"}
+          </button>
           <a className="btn-primary" href={exportUrl(runId, "xlsx")}>
             Export approved (xlsx)
           </a>
@@ -152,6 +195,8 @@ export default function Dashboard({ runId }: { runId: string }) {
           {data.run.errors.join(" · ")}
         </div>
       )}
+
+      {archiveMsg && <div className="text-sm text-black/55">{archiveMsg}</div>}
 
       {/* summary cards */}
       <section className="grid gap-4 md:grid-cols-4">
