@@ -4,16 +4,17 @@ drops), and aggregate rows into logical units.
 Each topic (e.g. "Naive Bayes Classifier") appears across several rows, one per
 Unit Type. Two layouts are supported and grouped the same way:
 
-  * Session      -> slide content   (Unit = "<topic>")
-  * Tutorial     -> tutorial cheat-sheet, used as EXTRA reference content
-                    (Unit = "Tutorial | <topic>")
-  * MCQ Practice -> the MCQ assignment (a Drive .zip or a Doc)
-                    (Unit = "MCQ Practice | <topic>")
+  * Session               -> slide content   (Unit = "<topic>")
+  * Tutorial / Cheat Sheet -> reference content (Unit = "Tutorial | <topic>" /
+                             "Cheat Sheet | <topic>")
+  * MCQ Practice          -> the MCQ assignment (a Drive .zip or a Doc)
+  * In-class Quiz         -> the in-class quiz source (an .xlsx / .zip / Doc)
 
-We strip the "<type> | " prefix so all three rows collapse into one UnitSpec that
-carries the links to fetch content + questions. Links are read from whichever
-column holds a hyperlink (Resources / Embedded links / PPT / S3), so both the
-newer "Resources" sheets and older "PPT"/"Embedded links" sheets work.
+We strip the "<type> | " prefix so all rows of a topic collapse into one UnitSpec
+that carries the links to fetch content + questions. Links are read from whichever
+column holds a hyperlink (Resources / Code File / Embedded links / PPT / S3), so both
+the newer "Resources"/"Cheat Sheet"/"In-class Quiz" sheets and older
+"PPT"/"Embedded links"/"Tutorial" sheets work.
 Coding Assignment / Exam / Project rows are ignored for review sourcing.
 """
 from __future__ import annotations
@@ -28,8 +29,9 @@ _SLUG = re.compile(r"[^a-z0-9]+")
 _DOC_LINK = re.compile(r"docs\.google\.com/document/", re.I)  # Google Doc URL
 # unit-type prefixes we strip from "<type> | <topic>" to get the grouping key
 _TYPE_PREFIXES = {
-    "session", "tutorial", "mcq practice", "mcq", "coding practice", "assignment",
-    "grand assignment", "exam", "project", "reading material", "coding assignment",
+    "session", "tutorial", "cheat sheet", "mcq practice", "mcq", "coding practice",
+    "assignment", "grand assignment", "exam", "project", "reading material",
+    "coding assignment", "in class quiz", "in-class quiz", "quiz",
 }
 
 
@@ -55,6 +57,7 @@ def parse_mastersheet_xlsx(data: bytes) -> list[UnitSpec]:
     c_ppt = col("ppt")
     c_embed = col("embedded links", "embedded link")
     c_resources = col("resources")
+    c_code = col("code file", "code")
     c_s3 = col("s3 links", "s3 link")
     c_sid = col("s-id", "s_id", "sid")
 
@@ -78,8 +81,9 @@ def parse_mastersheet_xlsx(data: bytes) -> list[UnitSpec]:
         embed_link = _hyperlink(row, c_embed) or _cell_url(row, c_embed)
         res_link = _hyperlink(row, c_resources)
         ppt_link = _hyperlink(row, c_ppt)
+        code_link = _hyperlink(row, c_code)
         s3_link = _hyperlink(row, c_s3) or _cell_url(row, c_s3)
-        any_link = res_link or ppt_link or embed_link or s3_link
+        any_link = res_link or code_link or ppt_link or embed_link or s3_link
 
         if "session" in utype:
             cover = _cell(row, c_cover)
@@ -91,6 +95,8 @@ def parse_mastersheet_xlsx(data: bytes) -> list[UnitSpec]:
             u.unit = unit_name  # bare topic name reads best as the display name
         elif "mcq" in utype:            # "MCQ Practice" -> the assignment (zip or doc)
             u.mcq_doc_url = u.mcq_doc_url or any_link
+        elif "quiz" in utype:           # "In-class Quiz" -> the quiz source (xlsx/zip/doc)
+            u.quiz_doc_url = u.quiz_doc_url or any_link
         elif "tutorial" in utype:       # tutorial: reference content (+ in-class MCQs if a doc)
             u.tutorial_url = u.tutorial_url or any_link
             # A Tutorial *doc* also carries the in-class MCQs at the end, so it
@@ -98,6 +104,8 @@ def parse_mastersheet_xlsx(data: bytes) -> list[UnitSpec]:
             # reference content only (no MCQs to parse out of it).
             if any_link and _looks_like_doc(any_link):
                 u.quiz_doc_url = u.quiz_doc_url or any_link
+        elif "cheat" in utype:          # "Cheat Sheet" -> reference content only
+            u.tutorial_url = u.tutorial_url or any_link
         # (Coding Assignment / Exam / Project rows are ignored for review sourcing)
 
     # keep only units that have at least a question source or some content
