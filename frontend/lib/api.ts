@@ -125,6 +125,19 @@ export async function getActivity(limit = 25): Promise<{ activity: ActivityItem[
   return j(await safeFetch(`/activity?limit=${limit}`, { cache: "no-store" }));
 }
 
+export interface Insights {
+  total_reviews: number;
+  total_questions: number;
+  avg_approval_pct: number;
+  verdicts: Record<string, number>;
+  top_issues: { check: string; count: number }[];
+  by_reviewer: { reviewer: string; reviews: number }[];
+}
+
+export async function getInsights(): Promise<Insights> {
+  return j(await safeFetch("/insights", { cache: "no-store" }));
+}
+
 export async function getReviewStatus(
   sessionId: string,
   sourceSet: string

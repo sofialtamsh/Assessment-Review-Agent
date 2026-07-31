@@ -84,6 +84,8 @@ def list_units(owner: str | None = None) -> list[dict]:
         rows = db.exec(select(SessionRow)).all()
         out = []
         for r in _owned(rows, owner):
+            if r.session_id.startswith("eval_"):
+                continue  # evaluation sessions are review results, not reviewable units
             out.append({
                 "unit_id": r.session_id, "course": r.course, "module": r.module,
                 "unit": r.unit, "subtopics": list(r.subtopics or []),
@@ -100,6 +102,20 @@ def list_units(owner: str | None = None) -> list[dict]:
 def get_unit_row(unit_id: str) -> SessionRow | None:
     with get_session() as db:
         return db.get(SessionRow, unit_id)
+
+
+def clear_units(owner: str) -> None:
+    """Remove a reviewer's previously-ingested mastersheet units so a fresh ingest
+    shows ONLY the newly-ingested set. Evaluation sessions ('eval_…') are preserved,
+    and runs/review summaries are untouched (reviewed data is never deleted here)."""
+    if not owner:
+        return
+    with get_session() as db:
+        rows = db.exec(select(SessionRow).where(SessionRow.owner == owner)).all()
+        for r in rows:
+            if not r.session_id.startswith("eval_"):
+                db.delete(r)
+        db.commit()
 
 
 # ---- Batches (multiple units reviewed separately in one action) ----------- #
@@ -203,6 +219,40 @@ def find_prior_reviews(session_id: str, source_set: str,
     ]
     hits.sort(key=lambda r: r.created_at, reverse=True)
     return [_summary_dict(r) for r in hits]
+
+
+def insights() -> dict:
+    """Org-wide review analytics aggregated from stored reviews — the manager view:
+    how much was reviewed, overall approval, the most common problems the agents catch,
+    and who's reviewing."""
+    from collections import Counter
+
+    with get_session() as db:
+        summaries = db.exec(select(ReviewSummary)).all()
+        issue_rows = db.exec(
+            select(FindingRow.check_name).where(FindingRow.verdict != "PASS")).all()
+
+    total_reviews = len(summaries)
+    total_questions = sum(s.total_questions for s in summaries)
+    avg_pass = (round(100 * sum(s.pass_rate for s in summaries) / total_reviews, 1)
+                if total_reviews else 0.0)
+
+    verdicts: Counter[str] = Counter()
+    for s in summaries:
+        for k, v in (s.verdict_counts or {}).items():
+            verdicts[k] += v
+
+    by_reviewer = Counter(s.reviewer or "unknown" for s in summaries)
+    issues = Counter(cn for cn in issue_rows if cn and cn != "__set__")
+
+    return {
+        "total_reviews": total_reviews,
+        "total_questions": total_questions,
+        "avg_approval_pct": avg_pass,
+        "verdicts": dict(verdicts),
+        "top_issues": [{"check": k, "count": v} for k, v in issues.most_common(8)],
+        "by_reviewer": [{"reviewer": k, "reviews": v} for k, v in by_reviewer.most_common(10)],
+    }
 
 
 def list_activity(limit: int = 25) -> list[dict]:

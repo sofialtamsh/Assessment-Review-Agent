@@ -56,6 +56,12 @@ def activity(limit: int = Query(25)) -> dict:
     return {"activity": store.list_activity(limit)}
 
 
+@app.get("/insights")
+def insights() -> dict:
+    """Org-wide review analytics (totals, approval rate, most common issues, reviewers)."""
+    return store.insights()
+
+
 @app.get("/review_status")
 def review_status(session_id: str = Query(...),
                   source_set: str = Query("mcq_assignment")) -> dict:
@@ -121,11 +127,14 @@ async def upload_mastersheet(file: UploadFile = File(...), request: Request = No
         from .ingestion.mastersheet_xlsx import parse_mastersheet_xlsx
         units = parse_mastersheet_xlsx(data)
         if units:
+            store.clear_units(owner)   # a new ingest replaces this reviewer's old units
             store.save_units(units, owner=owner)
             return {"mode": "units", "ingested": len(units),
                     "units": [u.model_dump() for u in units]}
     sessions = parse_mastersheet(data, file.filename)
-    store.save_sessions(sessions, owner=owner)
+    if sessions:
+        store.clear_units(owner)
+        store.save_sessions(sessions, owner=owner)
     return {"mode": "sessions", "ingested": len(sessions),
             "sessions": [s.model_dump() for s in sessions]}
 
@@ -158,7 +167,9 @@ async def ingest_mastersheet_link(body: dict = Body(...), request: Request = Non
             "Fetched the sheet but found no units with links. The Google Sheet export may "
             "have dropped the cell hyperlinks (a known quirk for HYPERLINK()-formula cells). "
             "Download the sheet as .xlsx (File > Download > Microsoft Excel) and upload it.")
-    store.save_units(units, owner=auth.reviewer_from_request(request))
+    owner = auth.reviewer_from_request(request)
+    store.clear_units(owner)   # a new ingest replaces this reviewer's old units
+    store.save_units(units, owner=owner)
     return {"mode": "units", "ingested": len(units),
             "units": [u.model_dump() for u in units]}
 

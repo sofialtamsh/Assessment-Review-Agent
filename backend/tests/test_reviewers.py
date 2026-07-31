@@ -66,6 +66,55 @@ def test_activity_lists_runs_with_reviewer():
     assert mine and mine[0]["reviewer"] == "Meena"
 
 
+def test_clear_units_replaces_but_keeps_evals_and_others():
+    from app.models import SessionRow
+    from app.db import get_session as _gs
+    from app.schemas import UnitSpec
+
+    store.save_units([UnitSpec(unit_id="clr_u1", unit="Old A"),
+                      UnitSpec(unit_id="clr_u2", unit="Old B")], owner="Ravi")
+    # an eval session + another user's unit must survive Ravi's re-ingest
+    with _gs() as db:
+        db.add(SessionRow(session_id="eval_keepme", owner="Ravi", unit="Eval"))
+        db.commit()
+    store.save_units([UnitSpec(unit_id="clr_other", unit="Other")], owner="Zoe")
+
+    store.clear_units("Ravi")                       # fresh ingest for Ravi
+    store.save_units([UnitSpec(unit_id="clr_new", unit="New")], owner="Ravi")
+
+    ravi = {u["unit_id"] for u in store.list_units("Ravi")}
+    assert ravi == {"clr_new"}                       # only the new ingest remains
+    with _gs() as db:
+        assert db.get(SessionRow, "eval_keepme") is not None   # eval preserved
+    assert {u["unit_id"] for u in store.list_units("Zoe")} == {"clr_other"}  # other user safe
+
+
+def test_insights_aggregates_reviews_and_issues():
+    from app.db import get_session as _gs
+    from app.models import FindingRow
+
+    qs = [_q("iq1", "insight stem")]
+    store.save_review_summary(run_id="ins_run", session_id="ins_u", source_set="mcq_assignment",
+                              title="Ins", reviewer="Nadia",
+                              report={"total_questions": 10, "pass_rate": 0.8,
+                                      "verdict_counts": {"APPROVE": 8, "REVISE": 2}},
+                              questions=qs)
+    with _gs() as db:
+        db.add(FindingRow(run_id="ins_run", question_id="iq1", phase="phase3_ambiguity",
+                          check_name="option_ambiguity", verdict="FAIL"))
+        db.add(FindingRow(run_id="ins_run", question_id="iq1", phase="phase4_scope",
+                          check_name="out_of_scope", verdict="WARN"))
+        db.commit()
+
+    ins = store.insights()
+    assert ins["total_reviews"] >= 1
+    assert ins["total_questions"] >= 10
+    assert 0 <= ins["avg_approval_pct"] <= 100
+    checks = {i["check"] for i in ins["top_issues"]}
+    assert "option_ambiguity" in checks and "out_of_scope" in checks
+    assert any(r["reviewer"] == "Nadia" for r in ins["by_reviewer"])
+
+
 def test_units_scoped_per_owner_but_activity_shared():
     from app.jobs import manager
     from app.schemas import UnitSpec
