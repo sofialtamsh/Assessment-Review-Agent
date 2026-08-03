@@ -69,6 +69,34 @@ def review_status(session_id: str = Query(...),
     return {"prior": store.find_prior_reviews(session_id, source_set)}
 
 
+@app.post("/evaluation/crosscheck")
+async def evaluation_crosscheck(files: list[UploadFile] = File(...)) -> dict:
+    """Check that the SETS of one exam don't repeat questions. Upload 2+ set files
+    (MCQ .xlsx/.csv/.json or exam .docx/.pdf/.txt); returns questions that appear in
+    more than one set (exact or near-duplicate)."""
+    from . import crosscheck
+
+    if len(files) < 2:
+        raise HTTPException(400, "Upload at least two set files to compare.")
+    sets: list[tuple[str, list[str]]] = []
+    for f in files:
+        data = await f.read()
+        name = (f.filename or "set").rsplit(".", 1)[0]
+        try:
+            items = crosscheck.extract_items(data, f.filename or "")
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(422, f"Could not read '{f.filename}': {e}")
+        sets.append((name, items))
+
+    dups = crosscheck.cross_set_duplicates(sets)
+    exact = sum(1 for d in dups if d["exact"])
+    return {
+        "sets": [{"name": n, "questions": len(items)} for n, items in sets],
+        "duplicates": dups,
+        "summary": {"pairs": len(dups), "exact": exact, "near": len(dups) - exact},
+    }
+
+
 @app.post("/rubric/infer")
 async def infer_rubric_endpoint(
     file: UploadFile | None = File(None),
@@ -967,6 +995,11 @@ def export_report(run_id: str, format: str = Query("md")) -> Response:
     questions = store.load_questions(row.session_id, row.source_set)
     findings = store.load_findings(run_id)
     judgments = store.load_judgments(run_id)
+    if format == "pdf":
+        pdf = export.export_report_pdf(report, findings, judgments, questions)
+        audit.log("export_report", run_id=run_id, detail={"format": "pdf"})
+        return Response(pdf, media_type="application/pdf",
+                        headers=_dl(f"report_{run_id}.pdf"))
     md = export.export_report_markdown(report, findings, judgments, questions)
     audit.log("export_report", run_id=run_id, detail={"format": "md"})
     return Response(md, media_type="text/markdown", headers=_dl(f"report_{run_id}.md"))

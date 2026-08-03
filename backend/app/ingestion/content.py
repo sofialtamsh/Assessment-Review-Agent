@@ -21,9 +21,29 @@ def extract_segments(data: bytes, filename: str) -> list[tuple[str, str]]:
         return _from_pptx(data)
     if name.endswith(".pdf"):
         return _from_pdf(data)
+    if name.endswith(".docx"):
+        return _from_docx(data)
     # plain text / markdown fallback
     text = data.decode("utf-8-sig", errors="replace")
     return [("Notes", text)]
+
+
+def _from_docx(data: bytes) -> list[tuple[str, str]]:
+    """Extract text from a .docx (paragraphs + table cells) without python-docx —
+    a .docx is a zip; word/document.xml holds the content."""
+    import io
+    import zipfile
+
+    with zipfile.ZipFile(io.BytesIO(data)) as z:
+        xml = z.read("word/document.xml").decode("utf-8", "replace")
+    xml = re.sub(r"</w:(p|tr)>", "\n", xml)   # paragraph / table-row breaks -> newlines
+    xml = re.sub(r"</w:tc>", " \t ", xml)      # table-cell breaks -> tab
+    text = re.sub(r"<[^>]+>", "", xml)
+    for a, b in (("&amp;", "&"), ("&lt;", "<"), ("&gt;", ">"),
+                 ("&quot;", '"'), ("&apos;", "'")):
+        text = text.replace(a, b)
+    text = re.sub(r"[ \t]+", " ", text).strip()
+    return [("Document", text)] if text else []
 
 
 def _from_pptx(data: bytes) -> list[tuple[str, str]]:

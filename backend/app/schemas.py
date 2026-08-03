@@ -185,6 +185,10 @@ class SetReport(BaseModel):
     # marking-scheme compliance (empty when no rubric was attached)
     rubric_applied: bool = False
     rubric_compliance: list[RubricCheck] = Field(default_factory=list)
+    # overall quality score (0-100) + letter grade + how it was computed
+    quality_score: int = 0
+    quality_grade: str = "N/A"
+    quality_breakdown: dict = Field(default_factory=dict)
 
 
 # --------------------------------------------------------------------------- #

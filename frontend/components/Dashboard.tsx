@@ -9,6 +9,7 @@ import {
   getReport,
   listInstructions,
   reportExportUrl,
+  reportPdfUrl,
 } from "@/lib/api";
 import type {
   Instruction,
@@ -176,7 +177,10 @@ export default function Dashboard({ runId }: { runId: string }) {
             New run
           </Link>
           <a className="btn-ghost" href={reportExportUrl(runId)}>
-            Review report
+            Report (md)
+          </a>
+          <a className="btn-ghost" href={reportPdfUrl(runId)}>
+            Report (PDF)
           </a>
           <a className="btn-ghost" href={exportUrl(runId, "csv")}>
             Approved CSV
@@ -197,6 +201,10 @@ export default function Dashboard({ runId }: { runId: string }) {
       )}
 
       {archiveMsg && <div className="text-sm text-black/55">{archiveMsg}</div>}
+
+      {report && report.quality_grade && report.quality_grade !== "N/A" && (
+        <QualityBanner report={report} />
+      )}
 
       {/* summary cards */}
       <section className="grid gap-4 md:grid-cols-4">
@@ -409,6 +417,45 @@ const COST_LABELS: Record<string, string> = {
   edit_recheck: "Edit re-review",
 };
 const HUMAN_KEYS = new Set(["regeneration", "edit_recheck", "phase7_fixer"]);
+
+const GRADE_CLS: Record<string, string> = {
+  A: "bg-emerald-500", B: "bg-emerald-500", C: "bg-amber-500", D: "bg-orange-500", F: "bg-rose-500",
+};
+
+function QualityBanner({ report }: { report: NonNullable<ReportResponse["report"]> }) {
+  const b = report.quality_breakdown || {};
+  const grade = report.quality_grade || "N/A";
+  return (
+    <section className="card">
+      <div className="flex flex-wrap items-center gap-4">
+        <div
+          className={`grid h-16 w-16 shrink-0 place-items-center rounded-2xl text-white ${
+            GRADE_CLS[grade] || "bg-black/40"
+          }`}
+        >
+          <span className="text-2xl font-bold">{grade}</span>
+        </div>
+        <div>
+          <div className="label">Quality score</div>
+          <div className="text-3xl font-semibold tracking-tight tabular-nums">
+            {report.quality_score}
+            <span className="text-lg text-black/40">/100</span>
+          </div>
+        </div>
+        <div className="ml-auto max-w-md text-xs text-black/55">
+          <div className="mb-1">
+            <b>How it&apos;s scored:</b> {b.formula || "0.6 × approval% + 0.4 × cleanliness%"}
+          </div>
+          <div>
+            Approval <b>{Math.round(b.approval_pct || 0)}%</b> · Cleanliness{" "}
+            <b>{Math.round(b.cleanliness_pct || 0)}%</b>
+            {b.explains ? ` — ${b.explains}` : ""}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 const RUBRIC_STATUS: Record<string, { label: string; cls: string }> = {
   pass: { label: "PASS", cls: "bg-emerald-50 text-emerald-700" },

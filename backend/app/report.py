@@ -128,6 +128,10 @@ def build_report(session_id: str, questions: list[Question],
     compliance = evaluate_rubric(criteria, metric_values)
     rubric_applied = bool((rubric or {}).get("text") or criteria)
 
+    dup_questions = len({qid for c in clusters for qid in c.question_ids})
+    q_score, q_grade, q_breakdown = _quality_score(
+        n, approve, dup_questions, len(verbatim), len(out_of_scope), compliance)
+
     return SetReport(
         session_id=session_id,
         total_questions=n,
@@ -144,7 +148,42 @@ def build_report(session_id: str, questions: list[Question],
         scenario_vs_recall_ratio=ratio,
         rubric_applied=rubric_applied,
         rubric_compliance=compliance,
+        quality_score=q_score,
+        quality_grade=q_grade,
+        quality_breakdown=q_breakdown,
     )
+
+
+def _quality_score(n: int, approve: int, dup_questions: int, verbatim: int,
+                   out_of_scope: int, compliance: list) -> tuple[int, str, dict]:
+    """A single 0-100 quality score for the set, blended from two transparent parts:
+
+      * Approval  (60%) - the share of questions the Judge approved.
+      * Cleanliness (40%) - how free the set is of problems (duplicates, out-of-scope,
+        verbatim lifts, and any failed marking-scheme criteria), as a share of the set.
+
+    Kept deliberately simple so a reviewer can read the number and understand WHY.
+    """
+    if not n:
+        return 0, "N/A", {}
+    approval = 100 * approve / n
+    rubric_fails = sum(1 for c in compliance if getattr(c, "status", "") == "fail")
+    problems = dup_questions + verbatim + out_of_scope + rubric_fails
+    clean = max(0.0, 100 * (1 - problems / n))
+    score = round(0.6 * approval + 0.4 * clean)
+    grade = ("A" if score >= 90 else "B" if score >= 80 else "C" if score >= 70
+             else "D" if score >= 60 else "F")
+    breakdown = {
+        "approval_pct": round(approval, 1),
+        "cleanliness_pct": round(clean, 1),
+        "problems": problems,
+        "formula": "0.6 x approval% + 0.4 x cleanliness%",
+        "explains": (
+            f"{approve}/{n} approved; {problems} flagged "
+            f"({dup_questions} duplicate, {out_of_scope} out-of-scope, "
+            f"{verbatim} verbatim, {rubric_fails} rubric-fail)."),
+    }
+    return score, grade, breakdown
 
 
 # --------------------------------------------------------------------------- #

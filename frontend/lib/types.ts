@@ -64,6 +64,15 @@ export interface SetReport {
   scenario_vs_recall_ratio: number;
   rubric_applied?: boolean;
   rubric_compliance?: RubricCheck[];
+  quality_score?: number;
+  quality_grade?: string;
+  quality_breakdown?: {
+    approval_pct?: number;
+    cleanliness_pct?: number;
+    problems?: number;
+    formula?: string;
+    explains?: string;
+  };
 }
 
 export interface RubricCheck {

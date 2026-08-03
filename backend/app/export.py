@@ -103,6 +103,66 @@ def export_review_xlsx(questions: list[Question],
     return out.getvalue()
 
 
+def export_report_pdf(report: SetReport, findings: list[Finding],
+                      judgments: list[Judgment], questions: list[Question]) -> bytes:
+    """A shareable PDF of the review report — summary, quality score, rubric
+    compliance, and per-question verdicts."""
+    from xml.sax.saxutils import escape
+
+    from reportlab.lib.enums import TA_LEFT
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import cm
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+
+    styles = getSampleStyleSheet()
+    small = ParagraphStyle("small", parent=styles["Normal"], fontSize=9, leading=12,
+                           alignment=TA_LEFT)
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, title="Review Report",
+                            leftMargin=2 * cm, rightMargin=2 * cm,
+                            topMargin=1.6 * cm, bottomMargin=1.6 * cm)
+    story: list = []
+    story.append(Paragraph(f"Review Report — {escape(report.session_id)}", styles["Title"]))
+    story.append(Paragraph(
+        f"Quality score: <b>{report.quality_score}/100 ({escape(report.quality_grade)})</b>",
+        styles["Heading2"]))
+    if report.quality_breakdown.get("explains"):
+        story.append(Paragraph(escape(str(report.quality_breakdown["explains"])), small))
+    story.append(Spacer(1, 8))
+
+    for line in (
+        f"Total questions: <b>{report.total_questions}</b>",
+        f"Approval rate: <b>{report.pass_rate:.0%}</b>  ·  Verdicts: {escape(str(report.verdict_counts))}",
+        f"Difficulty: {escape(str(report.difficulty_distribution))}",
+        f"Duplicates: {sum(len(c.question_ids) for c in report.duplicate_clusters)}  ·  "
+        f"Out of scope: {len(report.out_of_scope_ids)}  ·  Verbatim lifts: {len(report.verbatim_lift_ids)}",
+    ):
+        story.append(Paragraph(line, small))
+
+    if report.rubric_applied and report.rubric_compliance:
+        story.append(Spacer(1, 8))
+        story.append(Paragraph("Marking-scheme compliance", styles["Heading3"]))
+        for c in report.rubric_compliance:
+            story.append(Paragraph(
+                f"[{escape(c.status.upper())}] {escape(c.name)}", small))
+
+    story.append(Spacer(1, 10))
+    story.append(Paragraph("Per-question verdicts", styles["Heading3"]))
+    jmap = {j.question_id: j for j in judgments}
+    for q in questions:
+        j = jmap.get(q.question_id)
+        verdict = j.verdict if j else "—"
+        reason = f" — {escape(j.reason)}" if j and j.reason else ""
+        story.append(Paragraph(
+            f"<b>{escape(q.question_id)}</b> [{escape(verdict)}]{reason}", small))
+        story.append(Paragraph(escape((q.stem or "")[:300]), small))
+        story.append(Spacer(1, 4))
+
+    doc.build(story)
+    return buf.getvalue()
+
+
 def export_report_markdown(report: SetReport, findings: list[Finding],
                            judgments: list[Judgment], questions: list[Question]) -> bytes:
     qmap = {q.question_id: q for q in questions}

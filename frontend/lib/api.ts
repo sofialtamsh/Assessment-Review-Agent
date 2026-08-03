@@ -432,6 +432,29 @@ export function exportUrl(runId: string, format: string): string {
   return `${API_BASE}/runs/${runId}/export?format=${format}`;
 }
 
+export interface CrossCheckResult {
+  sets: { name: string; questions: number }[];
+  duplicates: {
+    set_a: string;
+    set_b: string;
+    similarity: number;
+    exact: boolean;
+    question_a: string;
+    question_b: string;
+  }[];
+  summary: { pairs: number; exact: number; near: number };
+}
+
+export async function crossCheckSets(files: File[]): Promise<CrossCheckResult> {
+  const fd = new FormData();
+  for (const f of files) fd.append("files", f);
+  return j(await safeFetch("/evaluation/crosscheck", { method: "POST", body: fd }));
+}
+
 export function reportExportUrl(runId: string): string {
   return `${API_BASE}/runs/${runId}/report/export?format=md`;
+}
+
+export function reportPdfUrl(runId: string): string {
+  return `${API_BASE}/runs/${runId}/report/export?format=pdf`;
 }
