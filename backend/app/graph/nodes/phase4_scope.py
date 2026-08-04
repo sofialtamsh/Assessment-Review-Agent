@@ -97,7 +97,49 @@ def run(questions: list[Question], chunks: list[Chunk],
 
     payload = {"items": [_strip(i) for i in items]}
     result = runner.run(PHASE, prompt, payload, json.dumps(payload))
-    return to_findings(result.findings, model, PHASE)
+    findings = to_findings(result.findings, model, PHASE)
+    # Robustness: if the model returns nothing/malformed, don't silently skip scope —
+    # classify each question deterministically from the RAG signals we already computed
+    # (grounding against the slides + cheat-sheet). Guarantees Phase 4 always reports.
+    if not findings:
+        findings = _deterministic_scope(items, model)
+    return findings
+
+
+def _deterministic_scope(items: list[dict], model: str | None) -> list[Finding]:
+    """Scope verdicts from the deterministic signals (no LLM): a question is grounded
+    if its tagged subtopic was taught OR enough of its terms appear in the content."""
+    raw: list[dict] = []
+    for it in items:
+        qid = it["question_id"]
+        top = it.get("top_ref", "")
+        grounded = it.get("tag_in_scope") or \
+            it.get("content_overlap", 0.0) >= it.get("min_overlap", 0.33)
+        if not grounded:
+            raw.append({
+                "question_id": qid, "phase": PHASE, "check_name": "out_of_scope",
+                "verdict": "FAIL",
+                "evidence": (f"Not grounded in the session content — only "
+                             f"{it.get('content_overlap', 0):.0%} of its terms appear in the "
+                             f"slides/cheat-sheet (closest: {top})."),
+                "suggested_fix": "Remove, or replace with a question covered by this session.",
+            })
+        elif (it.get("numeric_overlap", 0) >= 2
+              and it.get("shared_phrase", 0) >= it.get("verbatim_phrase_min", 3)):
+            raw.append({
+                "question_id": qid, "phase": PHASE, "check_name": "verbatim_lift",
+                "verdict": "WARN",
+                "evidence": (f"Closely mirrors a worked example in {top} "
+                             f"(shares {it.get('numeric_overlap')} numbers and a "
+                             f"{it.get('shared_phrase')}-word phrase)."),
+                "suggested_fix": "Change the numbers/scenario so it tests understanding.",
+            })
+        else:
+            raw.append({
+                "question_id": qid, "phase": PHASE, "check_name": "in_scope", "verdict": "PASS",
+                "evidence": f"Grounded in the session content (closest: {top}).",
+            })
+    return to_findings(raw, model, PHASE)
 
 
 def _tag_in_scope(q: Question, taught: set[str]) -> bool:

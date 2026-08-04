@@ -19,6 +19,7 @@ import {
 } from "@/lib/api";
 import type { PriorReview } from "@/lib/api";
 import type { UnitInfo } from "@/lib/types";
+import CrossSetCheck from "./CrossSetCheck";
 import { PHASE_LABELS, PHASE_ORDER } from "./ui";
 
 type Step = "idle" | "uploading" | "preparing" | "running" | "done" | "error";
@@ -745,6 +746,7 @@ export default function UploadRun() {
                   {evalUnits.length} unit{evalUnits.length === 1 ? "" : "s"} selected (need at least{" "}
                   {mode === "eval" ? 1 : 2}).
                 </div>
+                {mode === "eval" && <CrossSetCheck />}
               </div>
             )}
           </>
