@@ -1,0 +1,24 @@
+name: keep-backend-awake
+
+# Pings the backend every ~10 min so Render's free service never idles into a spin-down
+# and Neon's free Postgres doesn't stay suspended. Hitting /activity runs a DB query, so
+# one ping keeps BOTH the web service and the database warm.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *" # every 10 minutes (GitHub may delay a few min under load)
+  workflow_dispatch: {} # allow manual runs from the Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend (wakes Render + Neon)
+        run: |
+          URL="${{ secrets.BACKEND_URL }}"
+          if [ -z "$URL" ]; then URL="https://assessment-review-agent.onrender.com"; fi
+          echo "Pinging $URL"
+          # /activity touches the DB (wakes Neon); fall back to /health. Never fail the job.
+          curl -fsS --max-time 90 "$URL/activity?limit=1" >/dev/null \
+            || curl -fsS --max-time 90 "$URL/health" >/dev/null \
+            || echo "ping failed (backend may be waking) — will retry next run"

@@ -53,17 +53,40 @@ export class ApiError extends Error {
   }
 }
 
-/** fetch that turns "Failed to fetch" into a clear, diagnosable message and adds auth. */
+const fullUrl = (path: string) => (path.startsWith("http") ? path : `${API_BASE}${path}`);
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Free hosts sleep: Render spins the backend down after idle and Neon suspends the DB.
+// The first request after that fails or returns a gateway error while they wake. These
+// back-off delays (~25s total) ride through that instead of showing a hard error.
+const WAKE_DELAYS = [2000, 3000, 5000, 7000, 8000];
+
+/** fetch with auth headers + automatic retry while the backend/DB are waking up. */
 async function safeFetch(path: string, init?: RequestInit): Promise<Response> {
-  const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
-  const headers = { ...(init?.headers as Record<string, string>), ...authHeaders() };
-  try {
-    return await fetch(url, { ...init, headers });
-  } catch (e) {
-    throw new Error(
-      `Cannot reach the backend at ${API_BASE}. Is the API running and is ` +
-        `NEXT_PUBLIC_API_BASE_URL correct? (${(e as Error).message})`
-    );
+  const url = fullUrl(path);
+  const opts = { ...init, headers: { ...(init?.headers as Record<string, string>), ...authHeaders() } };
+  const method = (init?.method || "GET").toUpperCase();
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const res = await fetch(url, opts);
+      // gateway errors (Render waking) — retry only idempotent reads to avoid double POSTs
+      if ([502, 503, 504].includes(res.status) && method === "GET" && attempt < WAKE_DELAYS.length) {
+        await sleep(WAKE_DELAYS[attempt]);
+        continue;
+      }
+      return res;
+    } catch (e) {
+      // network error: the request never reached the server, so retrying is always safe
+      if (attempt < WAKE_DELAYS.length) {
+        await sleep(WAKE_DELAYS[attempt]);
+        continue;
+      }
+      throw new Error(
+        `Cannot reach the backend at ${API_BASE}. It may be waking up — reload in a moment. ` +
+          `If it persists, check the backend is running and NEXT_PUBLIC_API_BASE_URL is correct. ` +
+          `(${(e as Error).message})`
+      );
+    }
   }
 }
 
@@ -151,8 +174,10 @@ export async function getReviewStatus(
 }
 
 export async function checkHealth(): Promise<{ ok: boolean; detail: string }> {
+  // single quick probe (no internal retry) — the home page loops this itself to show
+  // a "waking…" state, so it must not block on the long wake-retry in safeFetch.
   try {
-    const r = await safeFetch("/health", { cache: "no-store" });
+    const r = await fetch(fullUrl("/health"), { cache: "no-store", headers: authHeaders() });
     if (!r.ok) return { ok: false, detail: `backend returned ${r.status}` };
     const d = await r.json();
     return { ok: true, detail: `provider: ${d.llm_provider}` };

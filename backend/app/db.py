@@ -11,14 +11,21 @@ from .config import get_settings
 _settings = get_settings()
 _db_url = _settings.db_url
 _is_sqlite = _db_url.startswith("sqlite")
-# check_same_thread is SQLite-only; pool_pre_ping keeps hosted Postgres connections
-# healthy across the free-tier's idle drops.
-engine = create_engine(
-    _db_url,
-    echo=False,
-    pool_pre_ping=not _is_sqlite,
-    connect_args={"check_same_thread": False} if _is_sqlite else {},
-)
+# Resilience for free hosted Postgres (e.g. Neon) which SUSPENDS when idle:
+#   * pool_pre_ping  -> test a connection before use; transparently replace a dead one
+#   * pool_recycle   -> drop connections older than 5 min (the provider closes idle ones)
+#   * connect_timeout-> fail a wake attempt fast so it retries instead of hanging
+# check_same_thread is SQLite-only.
+if _is_sqlite:
+    engine = create_engine(_db_url, echo=False, connect_args={"check_same_thread": False})
+else:
+    engine = create_engine(
+        _db_url,
+        echo=False,
+        pool_pre_ping=True,
+        pool_recycle=300,
+        connect_args={"connect_timeout": 10},
+    )
 
 
 # Columns added after the first release. SQLite's create_all won't add columns to
@@ -46,10 +53,23 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
 
 def init_db() -> None:
     # Import models so their tables register on SQLModel.metadata before create_all.
+    import time
+
     from . import models  # noqa: F401
 
-    SQLModel.metadata.create_all(engine)
-    _ensure_columns()
+    # A suspended Neon DB may take a few seconds to wake on the first connection at
+    # startup — retry briefly so the app doesn't crash-loop instead of waiting.
+    last_err: Exception | None = None
+    for attempt in range(6):
+        try:
+            SQLModel.metadata.create_all(engine)
+            _ensure_columns()
+            return
+        except Exception as e:  # noqa: BLE001 - DB waking; retry a few times
+            last_err = e
+            time.sleep(2)
+    if last_err:
+        raise last_err
 
 
 def _ensure_columns() -> None:
