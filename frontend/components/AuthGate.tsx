@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ApiError, clearAuth, getAuth, login } from "@/lib/api";
 import type { AuthUser } from "@/lib/api";
+import StorageBanner from "./StorageBanner";
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -90,6 +91,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
           Log out
         </button>
       </div>
+      <StorageBanner />
       {children}
     </>
   );

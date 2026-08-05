@@ -36,7 +36,15 @@ def _startup() -> None:
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "llm_provider": settings.llm.provider}
+    # 'persistent' tells the UI whether data survives restarts: Postgres = yes,
+    # the default ephemeral SQLite file (e.g. Render free tier) = no.
+    is_pg = settings.db_url.startswith("postgresql")
+    return {
+        "status": "ok",
+        "llm_provider": settings.llm.provider,
+        "storage": "postgres" if is_pg else "sqlite",
+        "persistent": is_pg,
+    }
 
 
 # --------------------------------------------------------------------------- #
