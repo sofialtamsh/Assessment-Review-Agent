@@ -3,21 +3,33 @@
 import { useEffect, useState } from "react";
 import { API_BASE } from "@/lib/api";
 
-/** Warns loudly when the backend is on temporary (non-persistent) storage, so it's
- *  obvious WHY reviewed data disappears after a restart — and how to fix it. */
+/** Shows storage status: a warning when temporary (data lost on restart), or a small
+ *  green confirmation when permanent. */
 export default function StorageBanner() {
-  const [temporary, setTemporary] = useState(false);
+  const [state, setState] = useState<{ persistent: boolean; storage: string } | null>(null);
 
   useEffect(() => {
     fetch(`${API_BASE}/health`, { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => {
-        if (d && d.persistent === false) setTemporary(true);
+        if (d && typeof d.persistent === "boolean") {
+          setState({ persistent: d.persistent, storage: d.storage || "" });
+        }
       })
       .catch(() => {});
   }, []);
 
-  if (!temporary) return null;
+  if (!state) return null;
+
+  if (state.persistent) {
+    return (
+      <div className="mb-4 flex items-center gap-2">
+        <span className="chip bg-emerald-50 text-emerald-700">
+          ✓ Permanent storage{state.storage ? ` · ${state.storage}` : ""}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">

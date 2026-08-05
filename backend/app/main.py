@@ -36,14 +36,16 @@ def _startup() -> None:
 
 @app.get("/health")
 def health() -> dict:
-    # 'persistent' tells the UI whether data survives restarts: Postgres = yes,
-    # the default ephemeral SQLite file (e.g. Render free tier) = no.
-    is_pg = settings.db_url.startswith("postgresql")
+    # 'persistent' tells the UI whether data survives restarts. Any external managed
+    # database (Postgres, MySQL, …) is durable; the default local SQLite file (e.g.
+    # Render free tier) is wiped on restart.
+    url = settings.db_url
+    is_sqlite = url.startswith("sqlite")
     return {
         "status": "ok",
         "llm_provider": settings.llm.provider,
-        "storage": "postgres" if is_pg else "sqlite",
-        "persistent": is_pg,
+        "storage": url.split(":", 1)[0].split("+")[0],  # e.g. postgresql / mysql / sqlite
+        "persistent": not is_sqlite,
     }
 
 
