@@ -48,3 +48,12 @@ def test_phase4_warns_when_no_content():
     qs = [_q("q1", "anything")]
     findings = run(qs, chunks=[], taught_subtopics=[], runner=_EmptyRunner())
     assert findings and findings[0].check_name == "no_content"
+
+
+def test_phase3_falls_back_to_pass_when_llm_returns_nothing():
+    from app.graph.nodes.phase3_ambiguity import run as run3
+    qs = [_q("q1", "What is a tensor?"), _q("q2", "Define a matrix.")]
+    findings = run3(qs, quiz_questions=[], runner=_EmptyRunner())
+    # a clean set now reports PASS per question instead of an empty "no checks fired"
+    assert {f.question_id for f in findings} == {"q1", "q2"}
+    assert all(f.check_name == "ambiguity_ok" and f.verdict == "PASS" for f in findings)

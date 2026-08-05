@@ -30,14 +30,14 @@ function timeAgo(iso: string): string {
   return `${Math.floor(secs / 86400)} d ago`;
 }
 
-export default function ActivityPanel() {
+export default function ActivityPanel({ limit = 15 }: { limit?: number }) {
   const [items, setItems] = useState<ActivityItem[]>([]);
 
   useEffect(() => {
     let alive = true;
     const load = async () => {
       try {
-        const r = await getActivity(15);
+        const r = await getActivity(limit);
         if (alive) setItems(r.activity);
       } catch {
         /* backend maybe waking */
@@ -49,7 +49,7 @@ export default function ActivityPanel() {
       alive = false;
       clearInterval(t);
     };
-  }, []);
+  }, [limit]);
 
   if (!items.length) return null;
 

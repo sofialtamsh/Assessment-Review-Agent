@@ -1,4 +1,3 @@
-import ActivityPanel from "@/components/ActivityPanel";
 import InsightsPanel from "@/components/InsightsPanel";
 import UploadRun from "@/components/UploadRun";
 
@@ -9,7 +8,6 @@ export default function Home() {
     <div className="space-y-8">
       <UploadRun />
       <InsightsPanel />
-      <ActivityPanel />
     </div>
   );
 }

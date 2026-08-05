@@ -65,13 +65,16 @@ export function Donut({
 export function BarChart({
   data,
   color = "#6366f1",
-  height = 120,
+  height = 150,
 }: {
   data: { label: string; value: number }[];
   color?: string;
   height?: number;
 }) {
   const max = Math.max(1, ...data.map((d) => d.value));
+  // reserve space for the value label (top) + the fixed-height text label (bottom)
+  // so the tallest bar's number never overflows above the chart into the heading.
+  const barSpace = height - 60;
   return (
     <div className="flex items-end gap-3" style={{ height }}>
       {data.map((d, i) => (
@@ -80,7 +83,7 @@ export function BarChart({
           <div
             className="w-full rounded-t-md transition-all"
             style={{
-              height: `${(d.value / max) * (height - 34)}px`,
+              height: `${(d.value / max) * barSpace}px`,
               background: color,
               minHeight: d.value > 0 ? 4 : 0,
             }}

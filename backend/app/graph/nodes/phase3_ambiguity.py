@@ -73,7 +73,42 @@ def run(questions: list[Question], quiz_questions: list[Question],
         "all_ids": [q.question_id for q in questions],
     }
     result = runner.run(PHASE, prompt, payload, json.dumps(payload))
-    return to_findings(result.findings, model, PHASE)
+    findings = to_findings(result.findings, model, PHASE)
+    # Robustness: if the model returns nothing, don't leave the phase blank — report the
+    # deterministic candidates and mark every un-flagged question as clean (PASS). So a
+    # genuinely clean set reads "PASS N" instead of an empty "no checks fired".
+    if not findings:
+        findings = _deterministic_ambiguity(payload, model)
+    return findings
+
+
+def _deterministic_ambiguity(payload: dict, model: str | None) -> list[Finding]:
+    raw: list[dict] = []
+    flagged: set[str] = set()
+    for c in payload["dup_candidates"]:
+        flagged.add(c["b_id"])
+        raw.append({"question_id": c["b_id"], "phase": PHASE, "check_name": "semantic_duplicate",
+                    "verdict": "WARN", "related_ids": [c["a_id"]],
+                    "evidence": f"Tests the same concept as {c['a_id']} "
+                                f"(similarity {c['similarity']:.2f}).",
+                    "suggested_fix": "Keep one; drop or repurpose the other."})
+    for c in payload["cross_set_candidates"]:
+        flagged.add(c["b_id"])
+        raw.append({"question_id": c["b_id"], "phase": PHASE, "check_name": "cross_set_overlap",
+                    "verdict": "WARN", "related_ids": [c["a_id"]],
+                    "evidence": f"Overlaps in-class quiz question {c['a_id']} "
+                                f"(similarity {c['similarity']:.2f}).",
+                    "suggested_fix": "Differentiate the assignment question from the quiz."})
+    for c in payload["ambiguity_candidates"]:
+        flagged.add(c["question_id"])
+        raw.append({"question_id": c["question_id"], "phase": PHASE, "check_name": "option_ambiguity",
+                    "verdict": "WARN", "evidence": c.get("reason", "More than one option is defensible."),
+                    "suggested_fix": "Reword so exactly one option is correct."})
+    for qid in payload["all_ids"]:
+        if qid not in flagged:
+            raw.append({"question_id": qid, "phase": PHASE, "check_name": "ambiguity_ok",
+                        "verdict": "PASS", "evidence": "No duplicate or ambiguity detected."})
+    return to_findings(raw, model, PHASE)
 
 
 def _matched(stem_l: str) -> str:

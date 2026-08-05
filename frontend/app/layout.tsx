@@ -22,8 +22,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </span>
                 <span className="font-semibold tracking-tight">Assessment Review</span>
               </Link>
-              <nav className="text-sm text-black/50">
-                <span className="hidden sm:inline">NxtWave · DS &amp; ML</span>
+              <nav className="flex items-center gap-4 text-sm">
+                <Link href="/" className="text-black/60 hover:text-black">
+                  New review
+                </Link>
+                <Link href="/history" className="text-black/60 hover:text-black">
+                  History
+                </Link>
+                <span className="hidden text-black/40 sm:inline">NxtWave · DS &amp; ML</span>
               </nav>
             </div>
           </header>
