@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import Link from "next/link";
 import AuthGate from "@/components/AuthGate";
+import ToastViewport from "@/components/ToastViewport";
 
 export const metadata: Metadata = {
   title: "Assessment Review",
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main className="mx-auto max-w-6xl px-6 py-8">
             <AuthGate>{children}</AuthGate>
           </main>
+          <ToastViewport />
         </div>
       </body>
     </html>

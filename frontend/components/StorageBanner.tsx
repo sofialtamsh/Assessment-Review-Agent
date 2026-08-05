@@ -1,42 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { API_BASE } from "@/lib/api";
+import { toast } from "@/lib/toast";
 
-/** Shows storage status: a warning when temporary (data lost on restart), or a small
- *  green confirmation when permanent. */
+/** Surfaces storage status as a bottom-right toast (once per session): a green
+ *  confirmation when permanent, or a warning when temporary. */
 export default function StorageBanner() {
-  const [state, setState] = useState<{ persistent: boolean; storage: string } | null>(null);
-
   useEffect(() => {
     fetch(`${API_BASE}/health`, { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => {
-        if (d && typeof d.persistent === "boolean") {
-          setState({ persistent: d.persistent, storage: d.storage || "" });
+        if (!d || typeof d.persistent !== "boolean") return;
+        if (d.persistent) {
+          toast.once("storage", "success", `Permanent storage · ${d.storage || "database"}`);
+        } else {
+          toast.once(
+            "storage-temp",
+            "warning",
+            "Temporary storage — reviewed data resets on restart. Set DATABASE_URL (Neon Postgres) to make it permanent."
+          );
         }
       })
       .catch(() => {});
   }, []);
 
-  if (!state) return null;
-
-  if (state.persistent) {
-    return (
-      <div className="mb-4 flex items-center gap-2">
-        <span className="chip bg-emerald-50 text-emerald-700">
-          ✓ Permanent storage{state.storage ? ` · ${state.storage}` : ""}
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-      ⚠ <b>Temporary storage.</b> Reviewed content will be lost when the server sleeps or
-      restarts. To make it permanent, set a <b>DATABASE_URL</b> (a free Neon Postgres) in the
-      backend&apos;s environment and redeploy. Until then, the already-reviewed guardrail and
-      history reset on each restart.
-    </div>
-  );
+  return null;
 }

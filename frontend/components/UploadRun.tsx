@@ -19,6 +19,7 @@ import {
 } from "@/lib/api";
 import type { PriorReview } from "@/lib/api";
 import type { UnitInfo } from "@/lib/types";
+import { toast } from "@/lib/toast";
 import CrossSetCheck from "./CrossSetCheck";
 import { PHASE_LABELS, PHASE_ORDER } from "./ui";
 
@@ -121,6 +122,7 @@ export default function UploadRun() {
       const h = await checkHealth();
       setHealth(h);
       if (h.ok) {
+        toast.once("connected", "success", `Connected to backend · ${h.detail}`);
         setWaking(false);
         return;
       }
@@ -182,11 +184,12 @@ export default function UploadRun() {
     setMsg("");
     try {
       const r = await uploadFile("/upload/mastersheet", master);
+      setMsg("");
       if (r.mode === "units") {
         await refreshUnits();
-        setMsg(`Ingested ${r.ingested} units. Pick one and review — content & questions load from the sheet.`);
+        toast.success(`Ingested ${r.ingested} units — pick one to review.`);
       } else {
-        setMsg(`Ingested ${r.ingested} sessions (CSV has no links — use manual upload, or upload the .xlsx to auto-source content/questions).`);
+        toast.info(`Ingested ${r.ingested} sessions (CSV has no links — use manual upload or the .xlsx).`);
       }
       setStep("idle");
     } catch (e: any) {
@@ -205,7 +208,8 @@ export default function UploadRun() {
     try {
       const r = await ingestMastersheetLink(masterUrl.trim());
       await refreshUnits();
-      setMsg(`Ingested ${r.ingested} units from the link. Pick one and review — content & questions load from the sheet.`);
+      setMsg("");
+      toast.success(`Ingested ${r.ingested} units from the link — pick one to review.`);
       setStep("idle");
     } catch (e: any) {
       setStep("error");
@@ -381,9 +385,7 @@ export default function UploadRun() {
           </div>
         </div>
       )}
-      {health?.ok && (
-        <div className="text-xs text-emerald-600">● Connected to backend ({API_BASE} · {health.detail})</div>
-      )}
+      {/* connected-to-backend status is logged to the console, not shown on the page */}
 
       {/* ---- primary: mastersheet-driven ---- */}
       <section className="card space-y-5">

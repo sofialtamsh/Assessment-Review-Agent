@@ -19,6 +19,7 @@ import type {
   Rubric,
   RubricCheck,
 } from "@/lib/types";
+import { toast } from "@/lib/toast";
 import { BarChart, Donut } from "./charts";
 import FeedbackPanel from "./FeedbackPanel";
 import QuestionDrawer from "./QuestionDrawer";
@@ -62,10 +63,10 @@ export default function Dashboard({ runId }: { runId: string }) {
     setArchiveMsg("");
     try {
       const r = await archiveRun(runId);
-      if (!r.enabled) setArchiveMsg(r.message || "Archiving is not configured.");
-      else setArchiveMsg(r.urls?.length ? `Archived ✓ (${r.urls.length} files)` : "Archived.");
+      if (!r.enabled) toast.info(r.message || "Archiving is not configured.");
+      else toast.success(r.urls?.length ? `Archived to GitHub (${r.urls.length} files)` : "Archived.");
     } catch (e: any) {
-      setArchiveMsg(e.message || "Archive failed");
+      setArchiveMsg(e.message || "Archive failed"); // errors stay inline (may carry a link)
     } finally {
       setArchiving(false);
     }

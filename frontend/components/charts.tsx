@@ -85,7 +85,10 @@ export function BarChart({
               minHeight: d.value > 0 ? 4 : 0,
             }}
           />
-          <span className="text-xs text-black/50">{d.label}</span>
+          {/* fixed-height label region so multi-line labels don't push their bar up */}
+          <span className="flex h-8 items-start justify-center text-center text-[11px] leading-tight text-black/50">
+            {d.label}
+          </span>
         </div>
       ))}
     </div>
