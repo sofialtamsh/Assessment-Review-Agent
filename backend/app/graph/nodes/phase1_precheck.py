@@ -67,6 +67,24 @@ def _schema_checks(questions: list[Question]) -> list[Finding]:
                 f"True/False question has {len(q.options)} options; expected exactly 2.",
             ))
 
+        # answer-length leak: the correct option is conspicuously the longest -> a giveaway
+        if q.qtype != "binary" and len(q.options) >= 3 and q.correct_keys:
+            correct_set = set(q.correct_keys)
+            correct = [o.text for o in q.options if o.key in correct_set and o.text.strip()]
+            distractors = [o.text for o in q.options if o.key not in correct_set and o.text.strip()]
+            if correct and distractors:
+                clen = max(len(c) for c in correct)
+                dmax = max(len(d) for d in distractors)
+                davg = sum(len(d) for d in distractors) / len(distractors)
+                # strictly the longest AND ≥2× the average distractor AND a big absolute gap
+                if clen > dmax and davg > 0 and clen >= 2.0 * davg and clen - davg >= 20:
+                    out.append(_warn(
+                        q, "answer_length_leak",
+                        "The correct option is conspicuously longer than the distractors, "
+                        "which can give the answer away.",
+                        fix="Make the option lengths comparable so length isn't a cue.",
+                    ))
+
         # duplicate option text
         texts = [o.text.strip().lower() for o in q.options if o.text.strip()]
         dupes = [t for t, c in Counter(texts).items() if c > 1]
@@ -76,8 +94,11 @@ def _schema_checks(questions: list[Question]) -> list[Finding]:
                 f"Duplicate option text(s): {dupes}.",
             ))
 
-        # everything clean -> a PASS marker so the dashboard can show coverage
-        if not any(f.question_id == q.question_id and f.verdict != "PASS" for f in out):
+        # everything schema-valid -> a PASS marker. Quality WARNs (a length leak, dup
+        # option text) are pedagogical flags, not schema defects, so they don't block it.
+        _quality = {"answer_length_leak", "duplicate_options"}
+        if not any(f.question_id == q.question_id and f.verdict != "PASS"
+                   and f.check_name not in _quality for f in out):
             out.append(Finding(
                 question_id=q.question_id, phase=PHASE,
                 check_name="schema_ok", verdict="PASS",

@@ -109,8 +109,7 @@ class MockProvider:
             if not grounded:
                 out.append(_f(qid, "phase4_scope", "out_of_scope", "FAIL",
                               f"Not covered by what was taught this session "
-                              f"(tag not in scope; only {item.get('content_overlap', 0):.0%} "
-                              f"of terms appear in the content; closest chunk {top_ref}).",
+                              f"(closest reference: {top_ref}).",
                               "Remove, or replace with a question grounded in this session."))
                 continue
             if (item.get("numeric_overlap", 0) >= 2

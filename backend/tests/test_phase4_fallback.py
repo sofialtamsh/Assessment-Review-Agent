@@ -24,13 +24,23 @@ class _EmptyRunner:
 def test_deterministic_scope_grounded_vs_out_of_scope():
     items = [
         {"question_id": "q_in", "top_ref": "Slide 2", "content_overlap": 0.9,
-         "tag_in_scope": True, "min_overlap": 0.33},
-        {"question_id": "q_out", "top_ref": "Slide 5", "content_overlap": 0.05,
-         "tag_in_scope": False, "min_overlap": 0.33},
+         "tag_in_scope": True},
+        {"question_id": "q_out", "top_ref": "Slide 5", "content_overlap": 0.0,
+         "tag_in_scope": False},
     ]
     by_q = {f.question_id: f for f in _deterministic_scope(items, "m")}
     assert by_q["q_in"].check_name == "in_scope" and by_q["q_in"].verdict == "PASS"
-    assert by_q["q_out"].check_name == "out_of_scope" and by_q["q_out"].verdict == "FAIL"
+    # the offline fallback is conservative: it WARNs (not FAIL) and never cites percentages
+    assert by_q["q_out"].check_name == "out_of_scope" and by_q["q_out"].verdict == "WARN"
+    assert "%" not in by_q["q_out"].evidence
+
+
+def test_scope_fallback_leans_in_scope_on_partial_overlap():
+    # a topic mentioned in the content (some overlap) is treated as covered, not flagged
+    items = [{"question_id": "q1", "top_ref": "Slide 1", "content_overlap": 0.25,
+              "tag_in_scope": False}]
+    f = _deterministic_scope(items, "m")[0]
+    assert f.check_name == "in_scope" and f.verdict == "PASS"
 
 
 def test_phase4_falls_back_when_llm_returns_nothing():

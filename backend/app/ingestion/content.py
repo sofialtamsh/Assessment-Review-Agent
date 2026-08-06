@@ -23,9 +23,31 @@ def extract_segments(data: bytes, filename: str) -> list[tuple[str, str]]:
         return _from_pdf(data)
     if name.endswith(".docx"):
         return _from_docx(data)
+    if name.endswith(".ipynb"):
+        return _from_ipynb(data)
     # plain text / markdown fallback
     text = data.decode("utf-8-sig", errors="replace")
     return [("Notes", text)]
+
+
+def _from_ipynb(data: bytes) -> list[tuple[str, str]]:
+    """Extract code + markdown cells from a Jupyter/Colab notebook (implementation
+    sessions ship their worked code as .ipynb) so questions can be grounded against it."""
+    import json
+
+    try:
+        nb = json.loads(data.decode("utf-8", "replace"))
+    except json.JSONDecodeError:
+        return []
+    segments: list[tuple[str, str]] = []
+    for idx, cell in enumerate(nb.get("cells", []), start=1):
+        src = cell.get("source", "")
+        text = ("".join(src) if isinstance(src, list) else str(src)).strip()
+        if not text:
+            continue
+        kind = "code" if cell.get("cell_type") == "code" else "markdown"
+        segments.append((f"Notebook cell {idx} ({kind})", text))
+    return segments
 
 
 def _from_docx(data: bytes) -> list[tuple[str, str]]:

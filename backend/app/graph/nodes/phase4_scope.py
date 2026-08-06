@@ -107,37 +107,42 @@ def run(questions: list[Question], chunks: list[Chunk],
 
 
 def _deterministic_scope(items: list[dict], model: str | None) -> list[Finding]:
-    """Scope verdicts from the deterministic signals (no LLM): a question is grounded
-    if its tagged subtopic was taught OR enough of its terms appear in the content."""
+    """Conservative scope fallback used only when the LLM returns nothing. Without the
+    model we can't judge meaning, so we DON'T hard-fail on term overlap: a topic named on
+    a slide is usually expanded on in the session (e.g. 'pandas' implies reading CSVs,
+    loading data). We treat a question as in-scope if its subtopic was taught or it shares
+    any real overlap with the content, and only softly WARN when we see essentially none —
+    no confusing percentages."""
     raw: list[dict] = []
     for it in items:
         qid = it["question_id"]
         top = it.get("top_ref", "")
-        grounded = it.get("tag_in_scope") or \
-            it.get("content_overlap", 0.0) >= it.get("min_overlap", 0.33)
-        if not grounded:
+        overlap = it.get("content_overlap", 0.0)
+        # lenient: tagged-in-scope, OR any meaningful overlap, OR a shared phrase
+        grounded = (it.get("tag_in_scope") or overlap >= 0.2
+                    or it.get("shared_phrase", 0) >= 3)
+        if not grounded and overlap < 0.05:
             raw.append({
                 "question_id": qid, "phase": PHASE, "check_name": "out_of_scope",
-                "verdict": "FAIL",
-                "evidence": (f"Not grounded in the session content — only "
-                             f"{it.get('content_overlap', 0):.0%} of its terms appear in the "
-                             f"slides/cheat-sheet (closest: {top})."),
-                "suggested_fix": "Remove, or replace with a question covered by this session.",
+                "verdict": "WARN",
+                "evidence": (f"Could not confirm this is covered by the session content "
+                             f"(closest reference: {top}). Please verify against the "
+                             f"slides / cheat-sheet / code file."),
+                "suggested_fix": "Confirm it's taught this session, or replace it.",
             })
         elif (it.get("numeric_overlap", 0) >= 2
               and it.get("shared_phrase", 0) >= it.get("verbatim_phrase_min", 3)):
             raw.append({
                 "question_id": qid, "phase": PHASE, "check_name": "verbatim_lift",
                 "verdict": "WARN",
-                "evidence": (f"Closely mirrors a worked example in {top} "
-                             f"(shares {it.get('numeric_overlap')} numbers and a "
-                             f"{it.get('shared_phrase')}-word phrase)."),
+                "evidence": (f"Closely mirrors a worked example in {top} — it may test recall "
+                             f"of that example rather than understanding."),
                 "suggested_fix": "Change the numbers/scenario so it tests understanding.",
             })
         else:
             raw.append({
                 "question_id": qid, "phase": PHASE, "check_name": "in_scope", "verdict": "PASS",
-                "evidence": f"Grounded in the session content (closest: {top}).",
+                "evidence": f"Covered by the session content (closest reference: {top}).",
             })
     return to_findings(raw, model, PHASE)
 

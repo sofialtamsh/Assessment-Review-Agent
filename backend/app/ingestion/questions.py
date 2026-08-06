@@ -82,6 +82,25 @@ def _extract_options(row: dict[str, Any]) -> list[Option]:
     return opts
 
 
+# column-name words that MEAN "the correct answer" (any of these, in any combination)
+_ANSWER_HINTS = ("answer", "correct", "key", "solution", "ans", "right")
+# ...but never these (they're not the answer even if they contain a hint word). Note we do
+# NOT exclude "option" — "Correct Option" IS an answer column, and "option_a" has no hint.
+_ANSWER_EXCLUDE = ("question", "explanation", "rationale", "distractor")
+
+
+def _answer_by_meaning(row: dict[str, Any]) -> str:
+    """Return the value of the first column whose NAME means 'the answer/key', regardless
+    of exact wording — so 'Correct Answer', 'Answer Key', 'Ans', 'Key' all work."""
+    for k, v in row.items():
+        kl = str(k).lower()
+        if any(x in kl for x in _ANSWER_EXCLUDE):
+            continue
+        if any(h in kl for h in _ANSWER_HINTS) and str(v).strip():
+            return str(v)
+    return ""
+
+
 def _field(row: dict[str, Any], *prefixes: str) -> str:
     """Like `first`, but matches a header that STARTS WITH a prefix — for pool sheets
     whose headers carry a parenthetical hint (e.g. 'Difficulty level (Easy, Medium…)'
@@ -164,8 +183,7 @@ def _row_to_question(row: dict[str, Any], default_session: str) -> Question | No
     correct = split_list(
         first(row, "correct_keys", "correct_key", "answer", "answers", "correct", "key")
     )
-    correct = [_norm_correct_token(c, options) for c in correct]
-    correct = [c for c in correct if c]
+    correct = [c for c in (_norm_correct_token(c, options) for c in correct) if c]
 
     # Inline-option "pool" format: no columnar options, but the stem cell holds the
     # options and a "Solution" cell holds the key (a Google-Sheet / xlsx exam pool).
@@ -177,6 +195,11 @@ def _row_to_question(row: dict[str, Any], default_session: str) -> Question | No
             if not correct:
                 key = _solution_key(str(first(row, "solution", "answer_text")), options)
                 correct = [key] if key else []
+    # Meaning-based fallback (after options are final): ANY column whose name means
+    # "answer/key" — varies a lot across sheets ("Correct Answer", "Answer Key", "Ans"…).
+    if not correct:
+        correct = [c for c in (_norm_correct_token(t, options)
+                               for t in split_list(_answer_by_meaning(row))) if c]
     # A row with no options at all isn't an MCQ (e.g. a short-answer pool tab) — skip
     # it, but only for pool-shaped sheets, so plain columnar sets are unaffected.
     if not options and pool_like:
